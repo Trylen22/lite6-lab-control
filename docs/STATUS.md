@@ -18,3 +18,10 @@ Identify existing lab wiring, tool, emergency stop, addresses, and host. Record 
 ## Validation
 
 Passed: shell syntax check, local host-inventory execution on the development workstation, example TOML parsing, ignored local configuration/capture/secret path checks, and staged whitespace/content review. The local inventory output is ignored. Physical functionality remains untested. GitHub synchronization is verified separately after publishing.
+
+## First lab network attempt
+
+- Operator supplied a robot web endpoint; stored only in ignored local configuration.
+- Created a dedicated laptop Ethernet profile with a static address, no default gateway, duplicate-address detection, and autoconnect disabled. Wi-Fi configuration unchanged.
+- Target ping and HTTP requests timed out. Final inspection showed Ethernet carrier off, so connectivity and device identity remain unverified.
+- Next: restore physical Ethernet link and retry only the supplied endpoint. No robot settings or motion commands were sent.
