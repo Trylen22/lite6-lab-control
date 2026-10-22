@@ -25,3 +25,10 @@ Passed: shell syntax check, local host-inventory execution on the development wo
 - Created a dedicated laptop Ethernet profile with a static address, no default gateway, duplicate-address detection, and autoconnect disabled. Wi-Fi configuration unchanged.
 - Target ping and HTTP requests timed out. Final inspection showed Ethernet carrier off, so connectivity and device identity remain unverified.
 - Next: restore physical Ethernet link and retry only the supplied endpoint. No robot settings or motion commands were sent.
+
+## Lab web connectivity confirmed
+
+- Operator corrected the target address, recorded in ignored local configuration.
+- Ethernet ping: two replies, zero packet loss.
+- HTTP on port 18333: 200 OK; page title UFactory Studio.
+- Network and web connectivity are now established. Robot identity, status, and camera access remain to be inspected. No motion or robot configuration commands sent.
