@@ -36,3 +36,7 @@ Found official camera dimensions, Lite vacuum URDF, UFACTORY OAK mount STEP, and
 ## Supervised single pickup requested — geometry pending
 
 The operator authorized one pickup, two-second hold, and release, and stated they can operate the emergency stop. Read-only inspection confirms a fresh green detection and unchanged robot pose; it does not establish the physical cup location or contact height. No move, enable, suction, or reset was issued. Next prerequisite is verified tool/TCP configuration and measured/taught approach/contact geometry, followed by a bounded supervised cycle. This is missing physical information, not a request for repeated authorization.
+
+## Operator-taught approach pose recorded
+
+The operator manually aligned the suction cup over the block with a slight gap. A fresh getter-only SDK read was saved with timestamp, pose, joint angles, and error/status codes under ignored local/taught_poses/. Error/warning codes were zero. This records an approach observation, not contact height or independently verified TCP geometry. No motion or suction command was sent. Next: operator establishes light contact without compressing/pushing the block, then records a separate contact pose.
