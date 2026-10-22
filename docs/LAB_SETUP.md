@@ -37,3 +37,11 @@ SSH connects to the host computer running our software. Do not assume either dev
 - [UFACTORY vision example](https://docs.supportarticle.ufactory.cc/support_articles/developer/ufactory-vision.html)
 
 These links are starting references; installation/API compatibility must be checked against the actual host before implementation.
+
+## OAK factory fallback discovered in the lab
+
+Luxonis documents DHCP first, with fallback `169.254.1.222` if no DHCP server responds. The camera was discovered at this fallback after adding a second laptop Ethernet address in `169.254.0.0/16`. Earlier scans of only the arm's subnet could not find it.
+
+For the dedicated `lite6-lab` laptop profile, retain the arm-subnet address and add `169.254.1.10/16` plus an explicit Ethernet route to `169.254.0.0/16`. Verify with `ip route get 169.254.1.222`; it should use the wired interface and link-local source address. The explicit route was required on this laptop. Actual local profile details are recorded under ignored `local/`. These are host-side changes; no camera IP reset or flash is needed.
+
+Validation: source-bound ping received 2/2 replies and DepthAI listed one TCP/IP device in `X_LINK_BOOTLOADER` state. Discovery does not establish a working image stream or verify the exact camera variant; those remain pending.

@@ -46,3 +46,11 @@ Passed: shell syntax check, local host-inventory execution on the development wo
 - Additional responding device offers SSH (Dropbear 2020.81), with tested web/RTSP/DepthAI ports closed.
 - MAC vendor lookup indicates Ubiquiti; the device is likely network infrastructure, but exact model has not been confirmed. Vendor discovery query received no reply.
 - No authentication, device configuration change, or stream initialization was attempted. Camera identification remains pending.
+
+## Camera found on documented fallback subnet
+
+- Checked Luxonis PoE guide: DHCP fallback is `169.254.1.222` in the link-local range.
+- Added a secondary laptop Ethernet link-local address and explicit link-local route while retaining the arm subnet and Wi-Fi. Saved both to the dedicated profile; autoconnect remains disabled.
+- Camera fallback address responded to two source-bound pings with zero packet loss. DepthAI listed one TCP/IP device in `X_LINK_BOOTLOADER` state.
+- Stored camera endpoint and MAC locally; documented reproducible network approach. No camera configuration, firmware, pipeline, or robot motion changes.
+- Next: verify camera model and inspect an image stream on operator request.
