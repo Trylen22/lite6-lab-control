@@ -201,3 +201,23 @@ Added a reusable read-only workspace preview module and tests for union gaps,
 chained vertical IK and target-aware UI readiness. 58 offline tests, Ruff and
 format checks pass. Restarted dashboard only after completion and idle check;
 existing camera producer reused and green/min-area-200 settings restored.
+
+## 2026-10-22 — Empty-tool travel tuning
+
+User requested reducing cycle time. Live image showed the block had moved
+outside the checked area; requested restore for comparison while implementing
+the change. User replied “there”; live detection confirmed near the previous
+verified pickup. Kept contact/loaded scale 1.3225, acceleration, image alignment
+and contact bounds unchanged. Added independently capped empty-tool travel
+20 mm/s, stopping at floor +15 mm for a slow last 10 mm approach. Verified
+release before slow initial retreat to +15 mm, then faster camera-height return.
+
+After dry-run full preflight, ran one explicitly requested faster trial. Local
+`button-pick-20261022T234936.json` completed at observation height with verified
+release in 47.522 s. One small XY correction, seal at the previous shallow
+height, 10 mm lift, two-second hold, lower/release/return. Added monotonic event
+and phase durations; future UI completion includes measured total. About 37%
+less time than the earlier 75.39 s near-aligned run, not a controlled comparison
+with the 105.05 s long-retarget cycle. 62 offline tests pass; Ruff and JS syntax
+checks pass. Restarted dashboard only when idle, reused camera producer, restored
+green/min-area-200 settings. No extra physical cycle during UI verification.

@@ -182,3 +182,17 @@ transit and each correction are checked through the regions; worker preflight
 also previews the predicted descent before moving. The final actual descent
 is checked again after image alignment. The button uses the cached estimated
 target to reject out-of-region requests early; live worker checks remain final.
+
+### Separate clear-travel speed
+
+The local profile may set `clear_travel_mm_s` up to 20 mm/s. Omitted values keep
+the legacy `5 * speed_scale` rate. This affects only the empty-tool vertical
+approach above the floor +15 mm and the return after a slow release-gated
+retreat to that height. The final 10 mm approach, image alignment, bounded
+contact search and loaded lift/lower retain their previous speeds. Acceleration
+and all depth/seal/configuration checks are unchanged.
+
+Cycle traces include monotonic event times, `total_seconds` and `phase_seconds`.
+The dashboard reports measured duration after successful completion. Compare
+like starting positions; a cycle that begins aligned is not a fair measurement
+of faster long-distance visual alignment.

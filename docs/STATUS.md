@@ -35,13 +35,14 @@ All actual configuration, regions, reference poses and traces remain ignored in
 `local/`. The old active fit was invalidated after relocation; experimental
 retargeting records retain their measured response and contact provenance.
 
-Current authorized speed scale is **1.3225**: two compounded 15% increases.
-Travel/return 6.6125 mm/s, lift/lower 2.645 mm/s, final search 0.66125 mm/s.
+Current contact/alignment speed scale is **1.3225**: two compounded 15% increases.
+Alignment and near-contact travel 6.6125 mm/s, lift/lower 2.645 mm/s, final search
+0.66125 mm/s. Subsequent empty-tool speed tuning is recorded below.
 Accelerations and the two-second hold are unchanged.
 
 ## Software checks
 
-58 offline tests pass. Coverage includes frame freshness/session identity,
+62 offline tests pass. Coverage includes frame freshness/session identity,
 duplicate-frame rejection, consecutive stable detection after missed frames,
 ambiguous-target rejection, calibration math, corridor bounds, seal-before-lift,
 verified output transitions, speed limits and release-gated vertical return.
@@ -87,3 +88,24 @@ Added initial chained transit/descent/return preview, per-segment region checks
 and cached-target readiness. The worker still checks the actual aligned descent.
 Restarted only the dashboard after completion, reused the camera session and
 restored the green detection threshold. Actual geometry and traces stay local.
+
+## Separate clear-travel tuning — 23:50 UTC
+
+User authorized reducing cycle time and restored the block near the successful
+pickup location. Added a separate 20 mm/s empty-tool rate above floor +15 mm.
+Final approach and initial release-gated retreat retain 6.6125 mm/s. Image
+alignment, 0.5 mm contact increments, depth floor, seal confirmation, loaded
+lift/lower, hold and acceleration remain unchanged.
+
+One supervised trial passed in **47.52 s**, including one small alignment move,
+seal feedback, 10 mm lift, two-second hold, release and camera-height return.
+Phase timings: approach 12.14 s, search/seal 10.50 s, lift 4.36 s, hold 2.04 s,
+lower 3.81 s, return 12.35 s; remaining time is checks/vision/alignment.
+This is about 37% shorter than the earlier 75.39 s near-aligned UI cycle, with
+slightly different placement/contact. The 105.05 s long-retarget trial includes
+additional alignment work and is not a controlled speed comparison.
+
+Added monotonic event/phase durations and completion time in UI job messages.
+62 offline tests pass, including fast/slow phase separation and failed-seal
+behavior. Dashboard reloaded after idle verification; camera session reused.
+No second faster pickup was issued.

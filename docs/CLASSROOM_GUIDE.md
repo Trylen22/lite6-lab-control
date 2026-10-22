@@ -142,3 +142,12 @@ Read `workspace_preview.py` and `test_workspace_paths.py`. Why must a predicted
 vertical descent be checked after the hypothetical high transit? What does the
 3×3 grid establish, and what still requires operator inspection and physical
 trials? Contrast estimated image error with independently measured cup accuracy.
+
+## Lesson: make a cycle faster without speeding every phase
+
+Inspect `clear_travel_speed` and the staged approach/retreat in
+`automatic_pick.py`. Which movements carry the block? Which happen near contact?
+Why should one global speed multiplier not control all of them? Compare
+`phase_seconds` across similar runs and explain why travel speed, acceleration,
+frame acquisition, IK checks, seal confirmation and deliberate hold all affect
+the total. A speed command is not a promise of constant achieved speed.

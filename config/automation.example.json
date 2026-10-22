@@ -37,5 +37,6 @@
     null
   ],
   "speed_scale": 1.0,
-  "xy_regions_mm": []
+  "xy_regions_mm": [],
+  "clear_travel_mm_s": 5.0
 }

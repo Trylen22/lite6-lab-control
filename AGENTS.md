@@ -13,7 +13,7 @@ as robot targets without explaining the calibration and its domain.
 The operator is present in the lab with the physical E-stop reachable. Mounting,
 controller-reported tool/load settings and supervised low-speed trials were
 established in this session. User authorized green-guided pickup development,
-bounded trials, two compounded 15% speed increases (maximum scale 1.3225), and
+bounded trials, two compounded 15% increases for contact/loaded motion (maximum scale 1.3225), and
 return to observation height after every successful cycle. A moved-block test
 tracked about 103 mm, sealed/lifted/placed/released, and returned to camera height.
 See docs/STATUS.md and docs/SESSION_LOG.md for evidence and remaining limits.
@@ -63,3 +63,10 @@ rectangle. Chained predicted travel/descent/return preview precedes movement,
 and actual aligned descent is checked again. Sampled IK is not shelf collision
 detection. Latest test: 72.26 mm net XY, seal/lift/release/return passed at the
 unchanged speed cap. See STATUS for scope; no additional pickup is implied.
+
+The subsequent explicit speed-tuning request authorized separate empty-tool
+travel. One supervised cycle passed at 20 mm/s above floor +15 mm; slow final
+approach/initial retreat and all contact/alignment/loaded speeds remain unchanged.
+The local profile selects that rate; old profiles retain legacy speed. Trial
+total 47.52 s (near-aligned start). Do not apply this rate to loaded/contact
+motion or raise the 20 mm/s cap without a concrete new speed-tuning request.

@@ -83,6 +83,18 @@ class PickupJobsTests(unittest.TestCase):
         self.jobs.wait_for_completion()
         self.assertEqual(self.jobs.snapshot()["state"], "complete")
 
+    def test_completed_job_displays_measured_duration(self):
+        self.jobs.runner = lambda **kwargs: {
+            "total_seconds": 45.2,
+            "phase_seconds": {"approaching": 12},
+        }
+        self.jobs.start(self.vision, self.robot)
+        self.jobs.wait_for_completion()
+        result = self.jobs.snapshot()
+        self.assertEqual(result["total_seconds"], 45.2)
+        self.assertIn("45.2 s", result["message"])
+        self.assertEqual(result["phase_seconds"], {"approaching": 12})
+
     def test_fault_is_reported_without_automatic_retry(self):
         def fail(**kwargs):
             self.calls.append(kwargs)

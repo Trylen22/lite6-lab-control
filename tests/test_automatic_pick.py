@@ -15,6 +15,7 @@ class FakeRobot:
     def __init__(self):
         self.pose = [200, 70, 266, 180, 0, 0]
         self.moves = []
+        self.speeds = []
         self.arm = self
 
     def __enter__(self):
@@ -34,15 +35,19 @@ class FakeRobot:
 
     def move(self, target, speed):
         self.moves.append(target.copy())
+        self.speeds.append(speed)
         self.pose = target.copy()
 
 
 class AutomaticPickTests(unittest.TestCase):
-    def run_fake(self, seal=True, session="fake-camera"):
+    def run_fake(self, seal=True, session="fake-camera", clear_speed=None):
         with tempfile.TemporaryDirectory() as folder, ExitStack() as stack:
             root = Path(folder)
             profile = root / "profile.json"
-            profile.write_text(json.dumps(profile_fixture()))
+            settings = profile_fixture()
+            if clear_speed is not None:
+                settings["clear_travel_mm_s"] = clear_speed
+            profile.write_text(json.dumps(settings))
             robot = FakeRobot()
             cycle_calls = []
             stack.enter_context(patch("labdeck.automatic_pick.ROOT", root))
@@ -103,6 +108,23 @@ class AutomaticPickTests(unittest.TestCase):
         self.assertEqual(result["final_pose"][2], 266)
         self.assertEqual(progress[-1][0], "complete")
         self.assertEqual(observations[0].kwargs["min_area"], 200)
+
+    def test_fast_travel_slows_before_contact_and_until_clear_after_release(self):
+        robot, calls, result, error, _, _ = self.run_fake(clear_speed=20)
+        self.assertIsNone(error)
+        self.assertEqual([p[2] for p in robot.moves], [110, 100, 110, 266])
+        self.assertEqual(robot.speeds, [20, 6.6125, 6.6125, 20])
+        self.assertEqual(calls[0][2]["speed_scale"], 1.3225)
+        self.assertEqual(result["clear_travel_mm_s"], 20)
+        phases = [e for e in result["events"] if e["event"] == "phase_started"]
+        self.assertTrue(all("elapsed_seconds" in e for e in phases))
+        self.assertEqual(phases[-1]["phase"], "complete")
+
+    def test_failed_seal_with_fast_travel_does_not_retreat(self):
+        robot, calls, _, error, _, _ = self.run_fake(seal=False, clear_speed=20)
+        self.assertIn("No seal", error)
+        self.assertEqual([p[2] for p in robot.moves], [110, 100])
+        self.assertEqual(calls, [])
 
     def test_failed_seal_does_not_lift_or_return_automatically(self):
         robot, calls, result, error, _, _ = self.run_fake(seal=False)

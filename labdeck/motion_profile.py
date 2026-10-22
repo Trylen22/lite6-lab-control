@@ -19,3 +19,24 @@ def validate_speed_scale(scale):
             f"Speed scale must be between 1.0 and authorized {MAX_SPEED_SCALE}"
         )
     return scale
+
+
+# The subsequent explicit speed-tuning request covers empty-tool travel only.
+# Contact, loaded lift/lower, and image-alignment scaling retain the old cap.
+MAX_CLEAR_TRAVEL_MM_S = 20.0
+CLEARANCE_ABOVE_FLOOR_MM = 15.0
+
+
+def clear_travel_speed(profile):
+    """Validate a separate empty-tool rate; old profiles keep their old speed."""
+    baseline = 5 * validate_speed_scale(profile["speed_scale"])
+    speed = profile.get("clear_travel_mm_s", baseline)
+    if (
+        isinstance(speed, bool)
+        or not math.isfinite(speed)
+        or not baseline <= speed <= MAX_CLEAR_TRAVEL_MM_S
+    ):
+        raise ValueError(
+            f"Clear travel must be between {baseline} and {MAX_CLEAR_TRAVEL_MM_S} mm/s"
+        )
+    return speed

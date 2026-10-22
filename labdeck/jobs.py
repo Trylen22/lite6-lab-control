@@ -101,18 +101,27 @@ class JobManager:
                 self.data.update(phase=phase, message=message)
 
         try:
-            self.runner(
+            result = self.runner(
                 profile_path=self.profile_path,
                 progress=progress,
                 min_area=min_area,
                 execute=True,
             )
             with self.lock:
+                duration = (
+                    result.get("total_seconds") if isinstance(result, dict) else None
+                )
+                suffix = f" · {duration:.1f} s" if duration is not None else ""
                 self.data.update(
                     state="complete",
                     phase="complete",
-                    message="Pick & Place complete · back at camera height",
+                    message="Pick & Place complete · back at camera height" + suffix,
                 )
+                if isinstance(result, dict):
+                    self.data.update(
+                        total_seconds=duration,
+                        phase_seconds=result.get("phase_seconds", {}),
+                    )
         except BaseException as exc:
             with self.lock:
                 self.data.update(state="failed", phase="failed", message=str(exc))

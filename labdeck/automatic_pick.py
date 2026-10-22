@@ -8,6 +8,7 @@ comes from ignored local/automation.json, not request-supplied coordinates.
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import time
 
 import numpy as np
 
@@ -15,7 +16,11 @@ from .calibration_motion import CalibrationArm, ROOT
 from .contact_pick import search_contact
 from .cycle_return import return_to_observation
 from .green_calibrate import observe, save
-from .motion_profile import validate_speed_scale
+from .motion_profile import (
+    validate_speed_scale,
+    clear_travel_speed,
+    CLEARANCE_ABOVE_FLOOR_MM,
+)
 from scripts.taught_pick_trial import perform_cycle
 
 PROFILE = ROOT / "local/automation.json"
@@ -29,6 +34,7 @@ def load_profile(path=PROFILE):
     if datetime.now(timezone.utc) >= datetime.fromisoformat(profile["expires_utc"]):
         raise ValueError("Calibration session expired; revalidate before pickup")
     validate_speed_scale(profile["speed_scale"])
+    clear_travel_speed(profile)
     j = np.array(profile["jacobian_px_per_mm"], dtype=float)
     if (
         j.shape != (2, 2)
@@ -125,11 +131,22 @@ class CycleEvents(list):
     def __init__(self, progress):
         super().__init__()
         self.progress = progress
+        self.started_monotonic = time.monotonic()
 
     def append(self, event):
+        event.setdefault("elapsed_seconds", time.monotonic() - self.started_monotonic)
         super().append(event)
         if event["event"] in self.LABELS:
-            self.progress(*self.LABELS[event["event"]])
+            phase, message = self.LABELS[event["event"]]
+            super().append(
+                {
+                    "event": "phase_started",
+                    "phase": phase,
+                    "message": message,
+                    "elapsed_seconds": event["elapsed_seconds"],
+                }
+            )
+            self.progress(phase, message)
 
 
 def run_cycle(
@@ -142,12 +159,21 @@ def run_cycle(
     j = np.array(profile["jacobian_px_per_mm"])
     aim = np.array(profile["cup_aim_px"])
     scale = profile["speed_scale"]
+    travel_speed = clear_travel_speed(profile)
     events = CycleEvents(progress)
+    report_progress = progress
+
+    def progress(phase, message):
+        # Monotonic phase boundaries permit comparisons without wall-clock jumps.
+        events.append({"event": "phase_started", "phase": phase, "message": message})
+        report_progress(phase, message)
+
     record = {
         "started_utc": datetime.now(timezone.utc).isoformat(),
         "profile_id": profile["profile_id"],
         "execute": execute,
         "speed_scale": scale,
+        "clear_travel_mm_s": travel_speed,
         "min_area": min_area,
         "events": events,
     }
@@ -244,6 +270,13 @@ def run_cycle(
             progress("approaching", "Approaching above the block")
             above = low.copy()
             above[2] += 5
+            if travel_speed > 5 * scale:
+                # Accelerate only well above contact. The final 10 mm approach
+                # retains its demonstrated speed; suction/search starts at +5.
+                clearance = low.copy()
+                clearance[2] += CLEARANCE_ABOVE_FLOOR_MM
+                robot.move(clearance, speed=travel_speed)
+                progress("approaching", "Slow approach above the block")
             robot.move(above, speed=5 * scale)
             progress("sealing", "Suction on before final approach")
             contact = search_contact(robot.arm, above, events, speed_scale=scale)
@@ -264,8 +297,15 @@ def run_cycle(
                 speed_scale=scale,
             )
             record["release_pose"] = robot.check()
+            if travel_speed > 5 * scale:
+                # Independently recheck release before the slow initial retreat.
+                # Only the subsequent empty-tool return uses the increased rate.
+                clearance = record["release_pose"].copy()
+                clearance[2] = low[2] + CLEARANCE_ABOVE_FLOOR_MM
+                progress("returning", "Clearing the block at slow speed")
+                robot.move(clearance, speed=5 * scale)
             record["final_pose"] = return_to_observation(
-                robot, profile["observation_height_mm"], 5 * scale, events
+                robot, profile["observation_height_mm"], travel_speed, events
             )
             record["result"] = "completed_at_observation_height_release_verified"
             progress("complete", "Pick & Place complete · back at camera height")
@@ -275,4 +315,17 @@ def run_cycle(
         raise
     finally:
         record["finished_utc"] = datetime.now(timezone.utc).isoformat()
+        record["total_seconds"] = time.monotonic() - events.started_monotonic
+        phases = [e for e in events if e["event"] == "phase_started"]
+        timings = {}
+        for index, event in enumerate(phases):
+            end = (
+                phases[index + 1]["elapsed_seconds"]
+                if index + 1 < len(phases)
+                else record["total_seconds"]
+            )
+            timings[event["phase"]] = (
+                timings.get(event["phase"], 0) + end - event["elapsed_seconds"]
+            )
+        record["phase_seconds"] = timings
         save(path, record)

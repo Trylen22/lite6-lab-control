@@ -142,3 +142,19 @@ transits are sampled at <=1 mm through the union. The outer rectangle alone
 is not permission to cross the unaccepted space. Readiness now estimates the
 target from the current cached centroid, while the worker re-acquires stable
 frames and checks the predicted travel/descent/return before first movement.
+
+## Speed phases and measurement
+
+`motion_profile.clear_travel_speed` validates a separate empty-tool speed,
+with a 20 mm/s cap. The contact/lift scale remains capped at 1.3225. Faster
+approach stops at contact floor +15 mm, then the final 10 mm to search height
+uses the previous travel rate. After verified release, retreat to +15 mm at the
+previous rate before the faster camera-height return. No trajectory, contact
+floor, acceleration or seal criterion is relaxed. Legacy profiles omit the
+new field and keep their existing behavior.
+
+`CycleEvents` stamps monotonic elapsed time and phase boundaries. Stored totals
+include connection/preflight and return; phase totals distinguish alignment,
+approach, seal search, loaded handling and return. `JobManager` carries the
+measured total into the completion message. Offline fake-controller tests
+verify the speed separation and failure paths before hardware trials.
