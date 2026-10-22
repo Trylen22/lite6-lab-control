@@ -2,7 +2,7 @@
 
 A classroom-friendly vision and robotics workspace for the **UFACTORY Lite 6** and **Luxonis OAK-D Pro PoE**. Built independently of the JetMax project, with readable Python modules and a local browser interface.
 
-**Current phase: observation and vision. No robot movement, enabling, reset, or gripper commands are implemented.**
+**The browser deck remains observation-only, with no robot motion endpoint.** A separate, default-dry-run script now supports the explicitly authorized single operator-taught suction trial described below. It is not vision-guided picking.
 
 ## What works now
 
@@ -102,3 +102,11 @@ Offline tests cover colored regions/noise, red hue wraparound, pixel-coordinate 
 Use this repo for Lite 6/OAK work and the separate JetMax repo for JetMax work. Keep machine addresses, credentials, model weights, images, recordings, and logs under ignored `local/`, `data/`, or another ignored directory. Commit source, sanitized examples, explanatory notes, and validation results after each coherent milestone, then push to this project's private remote.
 
 The model is downloaded explicitly rather than committed or fetched silently at startup. See [third-party references](docs/THIRD_PARTY.md) for provenance and licenses.
+
+## Separate supervised taught trial
+
+`scripts/taught_pick_trial.py` is separate from the classroom dashboard. It accepts explicit local approach/contact records and defaults to getter-only preflight. It permits at most a 2.1 mm vertical lift at 2 mm/s, requires the current pose and controller offsets/load to match the taught setup, requires an empty command queue and an already enabled/idle controller, and never enables, changes mode, or clears faults.
+
+Only an explicit `--execute` runs one cycle: suction with attachment feedback → taught lift → monitored two-second hold → lower to contact → release and end the release pulse. No attachment feedback means no lift. A motion/feedback failure away from confirmed contact preserves the tool state for the operator; it does not automatically descend or release. Use the physical emergency stop for an emergency; closing the terminal/disconnecting the SDK is not a certified stop.
+
+This script exists for the user's specifically authorized supervised trial. Do not execute it as a classroom example or reuse old coordinates. The actual local records, preflight inspection, operator presence, tool configuration, clear taught path, and unchanged block placement are prerequisites. Read the source and trial notes before use.
