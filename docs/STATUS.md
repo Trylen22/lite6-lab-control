@@ -50,3 +50,9 @@ The operator reported pressing the cup onto the block. A getter-only contact can
 Operator-reported light contact was saved locally at about 2 mm below approach and 1 mm above the earlier compressed contact. A live rich report confirmed configured TCP/base offsets zero, load 0.35 kg with configured center of gravity, position mode, enabled motors, and collision sensitivity 3. These are observed controller settings, not independent tool mass/geometry measurements.
 
 Added a separate default-dry-run taught trial script, with a maximum 2.1 mm vertical lift, 2 mm/s speed, 5 mm/s² acceleration, attachment gating, two-second monitored hold, supported-contact release, and fault-aware recovery behavior. The dashboard still has no motion route. Twelve offline tests and live getter-only preflight passed. Source is prepared for the previously authorized single supervised cycle; no suction or motion was issued during preflight.
+
+## First authorized suction trial — aborted before lift
+
+The script issued suction at the taught light-contact pose. SDK attachment confirmation timed out (return code 41). The attachment gate prevented every motion command. Cleanup released suction and ended the release pulse at the supported contact. A separate getter-only inspection confirmed the pose unchanged, zero error/warning codes, and all tool outputs low. No lift/hold/lower motion occurred. No automatic retry was attempted.
+
+Next diagnostic is operator observation of whether the pump ran/formed a seal, then checking the tool's physical seal and correct feedback mapping. A porous wooden surface, insufficient lip seal, pneumatic/wiring issue, or unsuitable feedback channel are possibilities, not established diagnoses. Actual logs remain under ignored local/trial_logs/.
