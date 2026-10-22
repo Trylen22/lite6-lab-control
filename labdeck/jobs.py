@@ -9,7 +9,15 @@ from datetime import datetime, timezone
 import threading
 import uuid
 
-from .automatic_pick import PROFILE, check_observation_pose, load_profile, run_cycle
+import numpy as np
+
+from .automatic_pick import (
+    PROFILE,
+    check_observation_pose,
+    check_transit,
+    load_profile,
+    run_cycle,
+)
 
 
 class JobManager:
@@ -48,6 +56,21 @@ class JobManager:
                 return False, "Select green color detection"
             if len(vision["detections"]) != 1:
                 return False, "Exactly one green marker must be visible"
+            # Cached geometry only improves the button hint. The controller
+            # independently acquires stable frames and rechecks live IK.
+            start = robot["values"]["pose"]
+            estimate = start.copy()
+            center = np.array(vision["detections"][0]["center"], dtype=float)
+            if center.shape != (2,) or not np.isfinite(center).all():
+                return False, "Invalid target centroid"
+            estimate[:2] = (
+                np.array(start[:2])
+                + np.linalg.solve(
+                    profile["jacobian_px_per_mm"],
+                    np.array(profile["cup_aim_px"]) - center,
+                )
+            ).tolist()
+            check_transit(start, estimate, profile)
             return True, "One cycle · place back and return to camera height"
         except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
             return False, str(exc)

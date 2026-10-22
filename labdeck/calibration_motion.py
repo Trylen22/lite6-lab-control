@@ -107,32 +107,55 @@ class CalibrationArm:
         return value(a.get_position())
 
     def preview(self, target):
-        """Sample every <=5 mm with previous IK as seed; never send a joint move."""
+        """Preview one segment from the live pose without sending a move."""
+        return self.preview_path([target])["segments"][0]
+
+    def preview_path(self, targets):
+        """Chain hypothetical IK seeds across segments, including a descent.
+
+        Reading IK for a low endpoint directly from today's high pose would
+        check a diagonal. Chaining checks the actual high transit, vertical
+        descent and return, while leaving the physical arm stationary.
+        """
         start = self.check()
-        if not np.allclose(start[3:], target[3:], atol=0.3, rtol=0):
-            raise RuntimeError("Calibration must keep wrist orientation fixed")
-        count = max(
-            1, int(np.ceil(np.linalg.norm(np.array(target[:3]) - start[:3]) / 5))
-        )
+        live_start = start.copy()
+        for target in targets:
+            if not np.allclose(start[3:], target[3:], atol=0.3, rtol=0):
+                raise RuntimeError("Calibration must keep wrist orientation fixed")
         joints = value(self.arm.get_servo_angle())
-        worst = 0
-        for fraction in np.linspace(0, 1, count + 1)[1:]:
-            pose = (np.array(start) + fraction * (np.array(target) - start)).tolist()
-            solution = value(
-                self.arm.get_inverse_kinematics(
-                    pose,
-                    input_is_radian=False,
-                    return_is_radian=False,
-                    limited=False,
-                    ref_angles=joints[:6],
-                )
+        segments = []
+        for target in targets:
+            count = max(
+                1, int(np.ceil(np.linalg.norm(np.array(target[:3]) - start[:3]) / 5))
             )
-            jump = max(abs(x - y) for x, y in zip(solution, joints))
-            if jump > 10 or value(self.arm.is_joint_limit(solution, is_radian=False)):
-                raise RuntimeError("IK branch jump or joint limit; no move")
-            worst = max(worst, jump)
-            joints = solution
-        return {"start": start, "target": target, "max_joint_step_deg": worst}
+            worst = 0
+            for fraction in np.linspace(0, 1, count + 1)[1:]:
+                pose = (
+                    np.array(start) + fraction * (np.array(target) - start)
+                ).tolist()
+                solution = value(
+                    self.arm.get_inverse_kinematics(
+                        pose,
+                        input_is_radian=False,
+                        return_is_radian=False,
+                        limited=False,
+                        ref_angles=joints[:6],
+                    )
+                )
+                jump = max(abs(x - y) for x, y in zip(solution, joints))
+                if jump > 10 or value(
+                    self.arm.is_joint_limit(solution, is_radian=False)
+                ):
+                    raise RuntimeError("IK branch jump or joint limit; no move")
+                worst = max(worst, jump)
+                joints = solution
+            segments.append(
+                {"start": start, "target": target, "max_joint_step_deg": worst}
+            )
+            start = target.copy()
+        if not np.allclose(self.check(), live_start, atol=0.1, rtol=0):
+            raise RuntimeError("Pose changed during planning")
+        return {"start": live_start, "segments": segments}
 
     def move(self, target, speed=5):
         with urllib.request.urlopen(

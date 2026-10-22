@@ -41,7 +41,7 @@ Accelerations and the two-second hold are unchanged.
 
 ## Software checks
 
-55 offline tests pass. Coverage includes frame freshness/session identity,
+58 offline tests pass. Coverage includes frame freshness/session identity,
 duplicate-frame rejection, consecutive stable detection after missed frames,
 ambiguous-target rejection, calibration math, corridor bounds, seal-before-lift,
 verified output transitions, speed limits and release-gated vertical return.
@@ -65,3 +65,25 @@ through a separate worker, reports progress and prevents duplicate starts.
 Opening or restarting the dashboard never starts movement. The current local
 profile expires and is tied to the camera session and checked tabletop region.
 Speed and broader repeatability still need further supervised development.
+
+## Workspace extension — 23:46 UTC
+
+The next block placement initially failed the original software XY bounds
+before movement. The operator identified clear tabletop space and a nearby
+shelf, then authorized a checked extension. Nine getter-only grid previews
+passed for high transit, vertical descent and return. The profile now keeps
+the original region plus a new corridor as a union, rather than admitting
+the entire outer rectangle. Shelf geometry was not measured or automatically
+detected; clearance depends on the operator's inspection of the full swept
+arm/camera space.
+
+One supervised cycle then passed: 72.26 mm net XY travel, 16 bounded correction
+moves, maximum image-response residual 2.717 px, stable attachment feedback,
+10 mm lift, two-second hold, verified release and return to observation height.
+It took about 105 seconds with the unchanged speed cap. This demonstrates the
+new placement, not full coverage of the sampled corridor or entire tabletop.
+
+Added initial chained transit/descent/return preview, per-segment region checks
+and cached-target readiness. The worker still checks the actual aligned descent.
+Restarted only the dashboard after completion, reused the camera session and
+restored the green detection threshold. Actual geometry and traces stay local.

@@ -130,3 +130,15 @@ workers, and why a camera-session change invalidates the local profile.
 Use fake-worker tests to explore failures without moving hardware. Distinguish
 UI readiness from the worker's fresh hardware checks. The first real button
 cycle passed; that single result does not establish repeatability everywhere.
+
+## Lesson: workspace limits versus physical obstacles
+
+A color target can be visible while its estimated pickup position lies outside
+the accepted region. Explain why a large empty tabletop does not automatically
+provide reachable poses, shelf clearance or a valid image mapping. Compare the
+outer bounding rectangle with a union of checked corridors.
+
+Read `workspace_preview.py` and `test_workspace_paths.py`. Why must a predicted
+vertical descent be checked after the hypothetical high transit? What does the
+3×3 grid establish, and what still requires operator inspection and physical
+trials? Contrast estimated image error with independently measured cup accuracy.

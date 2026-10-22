@@ -74,6 +74,7 @@ labdeck/
   server.py                 HTTP endpoints and independent observation workers
   jobs.py                   One explicit pickup job; duplicate-start protection
   automatic_pick.py         Session checks, alignment, pickup and camera return
+  workspace_preview.py      Read-only transit/descent/return grid preview
 scripts/
   camera_preview.py         Owns the OAK pipeline; serves fresh local frames
   discover_camera.py        Enumerates OAK devices without starting a stream
@@ -166,3 +167,18 @@ measured response, cup aim, checked XY bounds, contact floor and speed cap.
 geometry. Do not turn that example into a profile by guessing coordinates.
 Revalidate after camera restart, mounting/contact changes or session expiry.
 Traces stay in ignored `local/trial_logs/`.
+
+### Extending the checked workspace
+
+`python -m labdeck.workspace_preview` previews a candidate corridor toward the
+visible block without moving or changing the active profile. It checks a 3×3
+grid with chained high travel, vertical descent and return IK. Inspect the
+whole arm/camera swept space separately; this is not shelf collision detection.
+The ignored report records partial failures as well as success.
+
+Profiles may contain `xy_regions_mm`, a union of checked XY rectangles inside
+the outer bounds. This avoids filling every gap when adding a corridor. Initial
+transit and each correction are checked through the regions; worker preflight
+also previews the predicted descent before moving. The final actual descent
+is checked again after image alignment. The button uses the cached estimated
+target to reject out-of-region requests early; live worker checks remain final.

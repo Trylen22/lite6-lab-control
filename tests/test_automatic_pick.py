@@ -29,6 +29,9 @@ class FakeRobot:
     def preview(self, target):
         return {"start": self.pose.copy(), "target": target.copy()}
 
+    def preview_path(self, targets):
+        return {"targets": targets}
+
     def move(self, target, speed):
         self.moves.append(target.copy())
         self.pose = target.copy()

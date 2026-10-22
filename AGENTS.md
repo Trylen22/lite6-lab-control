@@ -56,3 +56,10 @@ The Pick & Place UI is implemented. Its first operator-triggered hardware cycle
 passed, including release and camera-height return. Keep local automation profiles
 ignored and session-bound. Preserve single-job dispatch and full per-click
 preflight when extending the interface.
+
+The operator authorized and one trial validated an additional moved-block
+corridor. Profile regions are a union; do not replace them with the entire outer
+rectangle. Chained predicted travel/descent/return preview precedes movement,
+and actual aligned descent is checked again. Sampled IK is not shelf collision
+detection. Latest test: 72.26 mm net XY, seal/lift/release/return passed at the
+unchanged speed cap. See STATUS for scope; no additional pickup is implied.

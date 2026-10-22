@@ -47,7 +47,7 @@ class PickupJobsTests(unittest.TestCase):
         self.vision = {
             "fresh": True,
             "settings": {"mode": "color", "preset": "green", "min_area": 100},
-            "detections": [{"label": "green"}],
+            "detections": [{"label": "green", "center": [330, 60]}],
         }
         self.robot = {
             "fresh": True,
@@ -117,6 +117,13 @@ class PickupJobsTests(unittest.TestCase):
                     self.profile.write_text(json.dumps(p))
                 with self.assertRaises(ValueError):
                     self.jobs.start(vision, robot)
+        self.assertEqual(self.calls, [])
+
+    def test_visible_but_out_of_region_target_disables_button(self):
+        self.vision["detections"][0]["center"] = [0, 0]
+        ready, reason = self.jobs.readiness(self.vision, self.robot)
+        self.assertFalse(ready)
+        self.assertIn("Outside", reason)
         self.assertEqual(self.calls, [])
 
     def test_http_only_explicit_local_action_starts_one_fake_job(self):

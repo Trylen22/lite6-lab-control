@@ -127,3 +127,18 @@ automatic retry or blind recovery movement. Trial events also drive UI progress.
 Cross-origin requests and missing action headers are rejected. These are local
 services, not authenticated remote-control APIs. Normal shutdown waits for an
 owned active cycle; browser closure and terminal closure are not emergency stops.
+
+## Extending a local workspace
+
+`workspace_preview.py` performs getter-only checks of the visible target's
+candidate corridor on a 3×3 XY grid. `CalibrationArm.preview_path` carries IK
+seeds across hypothetical segments, so descent is vertical at the destination
+instead of a diagonal from the live starting pose. No SDK move is issued.
+A grid pass demonstrates sampled kinematics, not obstacle clearance or every
+interior configuration. Every executed segment still gets a fresh preview.
+
+An optional union of `xy_regions_mm` keeps separate checked areas distinct;
+transits are sampled at <=1 mm through the union. The outer rectangle alone
+is not permission to cross the unaccepted space. Readiness now estimates the
+target from the current cached centroid, while the worker re-acquires stable
+frames and checks the predicted travel/descent/return before first movement.

@@ -46,6 +46,16 @@ def load_profile(path=PROFILE):
         or np.any(lo >= hi)
     ):
         raise ValueError("Invalid checked tabletop bounds")
+    for region in profile.get("xy_regions_mm", []):
+        bounds = np.array(region, dtype=float)
+        if (
+            bounds.shape != (2, 2)
+            or not np.isfinite(bounds).all()
+            or np.any(bounds[0] >= bounds[1])
+            or np.any(bounds[0] < lo)
+            or np.any(bounds[1] > hi)
+        ):
+            raise ValueError("Invalid checked workspace subregion")
     h = profile["observation_height_mm"]
     floor = profile["contact_floor_z_mm"]
     if (
@@ -82,8 +92,20 @@ def check_observation_pose(pose, profile):
             "Return to the calibrated camera height and wrist orientation"
         )
     xy = np.array(pose[:2])
-    if np.any(xy < profile["xy_min_mm"]) or np.any(xy > profile["xy_max_mm"]):
+    regions = profile.get("xy_regions_mm") or [
+        [profile["xy_min_mm"], profile["xy_max_mm"]]
+    ]
+    if not any(np.all(xy >= lo) and np.all(xy <= hi) for lo, hi in regions):
         raise RuntimeError("Outside the checked tabletop region")
+
+
+def check_transit(start, target, profile):
+    """An allowed endpoint cannot authorize crossing a gap between regions."""
+    count = max(1, int(np.ceil(np.linalg.norm(np.array(target[:2]) - start[:2]))))
+    for fraction in np.linspace(0, 1, count + 1):
+        check_observation_pose(
+            (np.array(start) + fraction * (np.array(target) - start)).tolist(), profile
+        )
 
 
 class CycleEvents(list):
@@ -155,11 +177,16 @@ def run_cycle(
             estimate[:2] = (
                 np.array(start[:2]) + np.linalg.solve(j, aim - ob["center_px"])
             ).tolist()
-            check_observation_pose(estimate, profile)
+            check_transit(start, estimate, profile)
+            predicted_low = estimate.copy()
+            predicted_low[2] = profile["contact_floor_z_mm"]
             record.update(
                 start=start,
                 initial_observation=ob,
                 initial_path_preview=robot.preview(estimate),
+                predicted_pick_path=robot.preview_path(
+                    [estimate, predicted_low, estimate]
+                ),
             )
             if not execute:
                 record["result"] = "read_only_preflight_passed"
@@ -192,7 +219,7 @@ def run_cycle(
                     raise RuntimeError("Alignment travel limit reached")
                 target = pose.copy()
                 target[:2] = (np.array(pose[:2]) + delta).tolist()
-                check_observation_pose(target, profile)
+                check_transit(pose, target, profile)
                 robot.move(target, speed=5 * scale)
                 updated = fresh_target()
                 residual = float(

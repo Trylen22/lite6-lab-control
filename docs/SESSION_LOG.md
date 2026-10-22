@@ -179,3 +179,25 @@ normal position mode at the returned camera height. Inspected the custom deck
 in Chrome and corrected stale sidebar/phase labels. Did not operate Studio jog,
 tool or speed controls. Most cycle time is vertical approach and return at the
 current travel cap; higher-speed tuning remains a separate supervised change.
+
+## 2026-10-22 — Extend the moved-block corridor
+
+The moved marker was visible but its estimated destination lay outside the
+original software limits; no move was sent on that rejected request. The user
+provided a tabletop/shelf photo and explicitly authorized extending and testing.
+Checked a 3×3 grid and exact estimated target using chained hypothetical IK:
+high transit, vertical descent, high return and original start. All passed.
+These are sampled kinematic checks, not a measured shelf exclusion volume.
+Saved the original profile and added the new corridor as a union locally,
+without changing camera identity, expiry, contact depth or speed limits.
+
+Executed one authorized cycle through the updated guarded worker. Local trace
+`button-pick-20261022T234428.json`: 23:44:28–23:46:14 UTC; 72.261 mm net XY,
+16 correction moves (17 tracking observations), max response residual 2.717 px.
+Seal feedback confirmed before the 10 mm lift; two-second hold, lowering,
+release outputs/input verified, returned to observation height. No extra pickup.
+
+Added a reusable read-only workspace preview module and tests for union gaps,
+chained vertical IK and target-aware UI readiness. 58 offline tests, Ruff and
+format checks pass. Restarted dashboard only after completion and idle check;
+existing camera producer reused and green/min-area-200 settings restored.
