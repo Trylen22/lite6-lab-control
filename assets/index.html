@@ -44,8 +44,8 @@
           </button>
         </div>
         <div class="sidebar-bottom">
-          <span class="dot neutral"></span> Observation session
-          <small>Motion API unavailable</small>
+          <span class="dot neutral"></span> Supervised lab session
+          <small>One cycle per click</small>
         </div>
       </aside>
       <main>
@@ -55,7 +55,7 @@
             ><span id="breadcrumb">Vision workspace</span>
           </div>
           <span class="session-pill"
-            ><span class="dot"></span> PHASE 01 · OBSERVATION</span
+            ><span class="dot"></span> GREEN PICK & PLACE</span
           >
         </header>
         <div class="content">
@@ -137,12 +137,26 @@
                     Waiting for a fresh camera frame…
                   </div>
                 </div>
-                <div class="calibration-summary" aria-live="polite">
-                  <strong>Green calibration</strong>
-                  <p id="calibration-detail">Waiting for a recorded XY fit.</p>
+                <div class="pickup-controls">
+                  <button id="pick-place" class="pickup-button" disabled>
+                    Pick &amp; Place
+                  </button>
+                  <div class="pickup-status" role="status" aria-live="polite">
+                    <strong id="pickup-phase">Checking readiness</strong>
+                    <span id="pickup-message"
+                      >Waiting for camera and robot status.</span
+                    >
+                  </div>
                   <p>
-                    Align-only experiment. Pickup path needs a new wrist/contact
-                    setup.
+                    One green block · lift, place back, return to camera
+                    height.<br />Keep the work area clear. Use the physical
+                    E-stop for an immediate stop.
+                  </p>
+                </div>
+                <div class="calibration-summary">
+                  <strong>Green calibration</strong>
+                  <p id="calibration-detail">
+                    Waiting for the tabletop profile.
                   </p>
                 </div>
                 <div class="camera-toolbar">
@@ -197,8 +211,9 @@
                 <div class="lesson-callout">
                   <span>↳</span>
                   <p>
-                    Measurements are in <b>image pixels</b>. Robot-space
-                    calibration comes in a later lesson.
+                    Measurements are in <b>image pixels</b>. The pickup
+                    controller applies the validated fixed-height tabletop
+                    profile.
                   </p>
                 </div>
                 <button class="text-button" data-go="learn">
@@ -301,8 +316,8 @@
               </article>
             </div>
             <div class="footnote">
-              <span>◇</span> This phase observes and explains. No robot movement
-              or gripper actions are available.
+              <span>◇</span> Pick &amp; Place runs one supervised cycle.
+              Telemetry alone never starts robot movement.
             </div>
           </section>
           <!-- Read-only telemetry: displayed positions are never movement targets. -->
@@ -503,13 +518,14 @@
                 <p class="body-copy">
                   Frames and detections are processed locally. The dashboard
                   serves only this laptop. No automatic recording, cloud
-                  inference, robot movement, or gripper operation is part of
-                  this phase.
+                  inference or movement on page load is enabled. The Pick &amp;
+                  Place button requests one guarded robot and suction cycle.
                 </p>
                 <p class="body-copy">
                   Color thresholds describe appearance. YOLO predictions
-                  describe learned classes. Neither output supplies a validated
-                  robot-space pickup location.
+                  describe learned classes. Green pickup uses a separately
+                  validated tabletop profile; YOLO classes do not trigger
+                  motion.
                 </p>
                 <p class="body-copy">
                   The README, architecture guide, and lesson plan explain how to

@@ -49,7 +49,7 @@ Inspect a detected color region. The table shows its centroid and area. The orig
 - Why can't a centroid such as `(320, 200)` be sent directly to the arm?
 - How would camera mounting and object height affect a pixel-to-robot conversion?
 
-No millimeter scale is assumed by this detector. Use `docs/ROADMAP.md` to discuss the measurements needed before any future pick.
+No millimeter scale is assumed by this detector. Use `docs/ROADMAP.md` to discuss the measurements needed for a calibrated pick.
 
 ## 4. Compare with YOLO
 
@@ -77,7 +77,7 @@ Open **Robot telemetry** and inspect `labdeck/robot.py`.
 - Why does the interface display only six joints when the SDK can return seven values?
 - Why do error and warning codes of zero not prove that a robot is safe to move?
 
-There is no enable, clear-error, reset, home, jog, pick, or gripper button. No physical motion is part of this lesson.
+The observer has no enable, clear-error, reset, home, jog or gripper command. The separate Pick & Place button is outside this observation lesson; it dispatches a guarded worker only after an explicit click.
 
 ## 6. Test a failure safely
 
@@ -118,3 +118,15 @@ height so the next block placement can be seen.
 Class exercise: explain why a single retargeting success differs from demonstrated
 repeatability across several positions, and why low image-fit residual alone
 cannot prove physical cup accuracy or obstacle clearance.
+
+## Lesson: from a button to one controlled cycle
+
+Read `assets/app.js`, `labdeck/server.py`, `labdeck/jobs.py`, then
+`labdeck/automatic_pick.py`. Trace a click through validation, the single-job lock,
+preflight, alignment, seal, lift, release and camera-height return. Explain why
+GET status requests cannot start movement, why two clicks must not create two
+workers, and why a camera-session change invalidates the local profile.
+
+Use fake-worker tests to explore failures without moving hardware. Distinguish
+UI readiness from the worker's fresh hardware checks. The first real button
+cycle passed; that single result does not establish repeatability everywhere.

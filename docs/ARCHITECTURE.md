@@ -1,6 +1,6 @@
 # How the Lab Deck works
 
-The application observes a camera and an arm through separate software boundaries. Vision results have no path to a robot command.
+The application observes a camera and an arm through separate software boundaries. An explicit button request can dispatch one guarded pickup worker; observations alone never dispatch movement.
 
 ```mermaid
 flowchart LR
@@ -11,6 +11,9 @@ flowchart LR
     Observer -->|Cached telemetry| Deck
     Deck --> Browser[Local browser]
     Browser -->|Host-only vision settings| Vision
+    Browser -->|Explicit one-cycle POST| Jobs[Single-job dispatcher]
+    Jobs --> Guard[CalibrationArm and pickup checks]
+    Guard -->|Checked SDK motion and suction| Arm
 ```
 
 ## Why two processes?
@@ -72,7 +75,7 @@ get_servo_angle
 
 The SDK performs its connection/version handshake. We disable optional report/timed-communication workers and poll our explicit getters about every three seconds. A nonzero getter return code means its value is not displayed as a successful measurement. Controller state is shown as a numeric code, without inventing an interpretation for undocumented states.
 
-An SDK response describes controller information. It does not establish safe mounting, correct payload, an operational emergency stop, or readiness for movement. Those belong to a future supervised validation stage.
+An SDK response describes controller information. It does not establish safe mounting, correct payload, an operational emergency stop, or readiness for movement. The separate pickup worker rechecks the session-specific controller and tool configuration before moving.
 
 ## Units and frames
 
@@ -87,7 +90,7 @@ An SDK response describes controller information. It does not establish safe mou
 | J1–J6 | Joint angles, degrees; SDK's extra placeholder is omitted in the UI |
 | Age | Seconds since the local worker received a result, using a monotonic clock |
 
-None of these observations are converted into motion targets. A wrist-mounted camera and a fixed camera require different extrinsic calibration arrangements.
+The pickup worker solves the measured 2x2 XY image response at fixed height and wrist orientation. The cup aim comes from a successful seal reference. This is limited to the taught tabletop/object-height region; it is not general camera extrinsic calibration.
 
 ## HTTP boundary and failures
 
@@ -99,7 +102,28 @@ None of these observations are converted into motion targets. A wrist-mounted ca
 | `GET /stream.mjpg?view=raw` | Original image from the producer |
 | `GET /stream.mjpg?view=mask` | Threshold mask while in color mode |
 | `POST /api/vision` | Validated host-only mode/preset/area/confidence settings |
+| `POST /api/pick-place` | Empty JSON plus explicit action header; dispatch exactly one guarded cycle |
 
-No motion or tool endpoint exists. Unknown actions return 404. Invalid settings return 400 and leave the active configuration intact. Cross-origin browser writes are rejected. Both servers bind to loopback; they are not authenticated services intended for public exposure.
+No arbitrary-coordinate, jog, enable, reset or standalone tool endpoint exists. Unknown actions return 404. Invalid settings return 400 and leave the active configuration intact. Cross-origin browser writes are rejected. Both servers bind to loopback; they are not authenticated services intended for public exposure.
 
 The browser obscures stale video with a status overlay and clears old detections. Robot values are hidden after their freshness window. A worker error is shown without clearing robot faults, reconnecting the robot automatically, or retrying a physical action. The camera producer exits if no new frame arrives for 20 seconds. Restart is an operator action.
+
+## Explicit pickup job
+
+`jobs.py` owns one worker under a lock. A duplicate request returns 409. Starting
+a page or server never starts a job. The worker snapshots the detection threshold
+and loads ignored `local/automation.json`; the request cannot supply geometry.
+Expiry, camera session, fixed height/orientation, checked bounds, fresh controller
+reports, release state and configuration must pass. Fresh target acquisition needs
+three distinct consecutive stable frames; missed detections reset that window.
+
+`automatic_pick.py` checks IK continuity, applies bounded XY corrections and
+compares observed image movement with the measured response. The final descent
+is checked again. Suction output is verified before a bounded contact search;
+independent stable attachment feedback gates lift. Release readback gates the
+vertical return to observation height. Failure reports an error without an
+automatic retry or blind recovery movement. Trial events also drive UI progress.
+
+Cross-origin requests and missing action headers are rejected. These are local
+services, not authenticated remote-control APIs. Normal shutdown waits for an
+owned active cycle; browser closure and terminal closure are not emergency stops.

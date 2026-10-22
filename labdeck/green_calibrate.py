@@ -32,7 +32,7 @@ def save(path, data):
     temporary.replace(path)
 
 
-def observe():
+def observe(min_area=100):
     """Three distinct, post-settle frames, one unambiguous stable green candidate.
 
     Monotonic clocks are shared because producer and consumer run on this host.
@@ -61,7 +61,7 @@ def observe():
             np.frombuffer(base64.b64decode(item["jpeg_base64"]), np.uint8),
             cv2.IMREAD_COLOR,
         )
-        candidates, _ = detect_color(image, "green", min_area=100)
+        candidates, _ = detect_color(image, "green", min_area=min_area)
         if not candidates:
             # A single dropped color mask is not a movement authorization or a
             # reason to reuse an old centroid. Reset the consecutive window and

@@ -92,6 +92,29 @@ def main():
     except KeyboardInterrupt:
         print("\nStopping processes owned by this launcher.", flush=True)
     finally:
+        # A graceful launcher exit must not kill a controller mid-cycle or stop
+        # its camera producer. Observe job state; this is not a robot stop API.
+        if children:
+            waiting = False
+            while True:
+                try:
+                    with urllib.request.urlopen(
+                        "http://127.0.0.1:8100/api/status", timeout=1
+                    ) as response:
+                        active = (
+                            json.load(response).get("job", {}).get("state") == "running"
+                        )
+                except (OSError, ValueError):
+                    active = False
+                if not active:
+                    break
+                if not waiting:
+                    print(
+                        "Waiting for the active pickup before shutdown; physical E-stop stops the robot immediately.",
+                        flush=True,
+                    )
+                    waiting = True
+                time.sleep(0.5)
         for process in reversed(children):
             if process.poll() is None:
                 process.terminate()

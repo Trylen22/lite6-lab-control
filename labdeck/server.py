@@ -2,8 +2,8 @@
 
 Camera ownership stays in camera_preview.py. This service reads that producer's
 fresh JPEGs over loopback, so we never open the OAK device twice. RobotObserver
-only reads telemetry. Vision results cannot call the robot: there is no motion
-route, dispatcher, or calibration-to-motion conversion in this application.
+only reads telemetry. Explicit same-origin pickup requests dispatch a separate
+single-cycle worker; telemetry and page loads never trigger motion.
 """
 
 import argparse
@@ -23,6 +23,8 @@ import numpy as np
 from labdeck.color import PRESETS, detect_color, annotate
 from labdeck.robot import RobotObserver
 from labdeck.yolo import YoloDetector
+from labdeck.jobs import JobManager
+from labdeck.automatic_pick import load_profile, PROFILE
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = ROOT / "local/models/yolox_nano.onnx"
@@ -159,7 +161,7 @@ class VisionWorkspace:
             stop.wait(0.10)
 
 
-def make_handler(vision, robot, stop):
+def make_handler(vision, robot, stop, jobs=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
@@ -193,7 +195,21 @@ def make_handler(vision, robot, stop):
                 # authorization; the standalone controller rechecks all context.
                 try:
                     model_path = ROOT / "local/calibration/green.json"
-                    if model_path.exists():
+                    if PROFILE.exists():
+                        profile = load_profile()
+                        model = {
+                            "aim_px": profile["cup_aim_px"],
+                            "jacobian_px_per_mm": profile["jacobian_px_per_mm"],
+                            "max_residual_px": profile["validation"][
+                                "max_fit_residual_px"
+                            ],
+                            "condition": profile["validation"]["condition"],
+                            "resolution": profile["resolution"],
+                            "captured_utc": profile["calibrated_utc"],
+                            "status": "tabletop_profile",
+                            "pickup_validated": True,
+                        }
+                    elif model_path.exists():
                         model = json.loads(model_path.read_text())
                     else:
                         relocation = json.loads(
@@ -230,13 +246,34 @@ def make_handler(vision, robot, stop):
                         200, {"status": "not_calibrated", "pickup_validated": False}
                     )
             elif path == "/api/status":
+                vision_state = vision.snapshot()
+                robot_state = robot.snapshot()
+                job = (
+                    jobs.snapshot()
+                    if jobs
+                    else {
+                        "state": "unavailable",
+                        "phase": "unavailable",
+                        "message": "Pickup worker unavailable",
+                    }
+                )
+                ready, reason = (
+                    jobs.readiness(vision_state, robot_state)
+                    if jobs
+                    else (False, "Pickup worker unavailable")
+                )
                 self.send_json(
                     200,
                     {
-                        "vision": vision.snapshot(),
-                        "robot": robot.snapshot(),
-                        "motion_available": False,
-                        "phase": "Observation and vision",
+                        "vision": vision_state,
+                        "robot": robot_state,
+                        "motion_available": jobs is not None,
+                        "job": job,
+                        "pickup": {
+                            "ready": ready and job["state"] != "running",
+                            "reason": reason,
+                        },
+                        "phase": "Green pickup workspace",
                     },
                 )
             elif path == "/stream.mjpg":
@@ -284,9 +321,9 @@ def make_handler(vision, robot, stop):
                 self.send_json(404, {"error": "Unknown endpoint"})
 
         def do_POST(self):
-            # This is the only write endpoint. It changes HOST vision settings.
-            # There are deliberately no robot command routes, even hidden ones.
-            if self.path != "/api/vision":
+            # Separate host-only settings from the explicit one-cycle action.
+            # There are no arbitrary coordinates, reset/enable or raw SDK routes.
+            if self.path not in ("/api/vision", "/api/pick-place"):
                 self.send_json(
                     404, {"error": "No such action; robot commands are unavailable"}
                 )
@@ -302,8 +339,30 @@ def make_handler(vision, robot, stop):
                 if self.headers.get_content_type() != "application/json":
                     raise ValueError("Content-Type must be application/json")
                 patch = json.loads(self.rfile.read(size))
-                vision.configure(patch)
-                self.send_json(200, vision.snapshot())
+                if self.path == "/api/pick-place":
+                    # Custom header forces a browser cross-origin preflight;
+                    # this loopback server supplies no permissive CORS response.
+                    if (
+                        self.headers.get("X-Labdeck-Action") != "pick-place"
+                        or self.headers.get("Sec-Fetch-Site") == "cross-site"
+                    ):
+                        self.send_json(
+                            403, {"error": "Use the local Pick & Place button"}
+                        )
+                        return
+                    if patch != {}:
+                        raise ValueError("Pickup accepts no coordinates or settings")
+                    if jobs is None:
+                        raise ValueError("Pickup worker unavailable")
+                    try:
+                        job = jobs.start(vision.snapshot(), robot.snapshot())
+                    except RuntimeError as exc:
+                        self.send_json(409, {"error": str(exc)})
+                        return
+                    self.send_json(202, job)
+                else:
+                    vision.configure(patch)
+                    self.send_json(200, vision.snapshot())
             except (ValueError, TypeError) as exc:
                 self.send_json(400, {"error": str(exc)})
 
@@ -324,10 +383,11 @@ def main():
     vision = VisionWorkspace("http://127.0.0.1:8090")
     robot = RobotObserver(robot_ip)
     stop = threading.Event()
+    jobs = JobManager()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
     server = ThreadingHTTPServer(
-        ("127.0.0.1", args.port), make_handler(vision, robot, stop)
+        ("127.0.0.1", args.port), make_handler(vision, robot, stop, jobs)
     )
     workers = [
         threading.Thread(target=vision.run, args=(stop,), daemon=True),
@@ -337,11 +397,13 @@ def main():
     for worker in workers:
         worker.start()
     print(
-        f"Lite 6 Lab Deck: http://127.0.0.1:{args.port}/ — observation only", flush=True
+        f"Lite 6 Lab Deck: http://127.0.0.1:{args.port}/ — explicit one-cycle pickup",
+        flush=True,
     )
     try:
         stop.wait()
     finally:
+        jobs.wait_for_completion()
         stop.set()
         with vision.condition:
             vision.condition.notify_all()

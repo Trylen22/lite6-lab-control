@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "profile_id": "REQUIRES_VALIDATED_LOCAL_CALIBRATION",
+  "expires_utc": "2000-01-01T00:00:00+00:00",
+  "camera_session": "",
+  "resolution": [
+    640,
+    400
+  ],
+  "observation_height_mm": null,
+  "orientation_degrees": [
+    null,
+    null,
+    null
+  ],
+  "contact_floor_z_mm": null,
+  "jacobian_px_per_mm": [
+    [
+      null,
+      null
+    ],
+    [
+      null,
+      null
+    ]
+  ],
+  "cup_aim_px": [
+    null,
+    null
+  ],
+  "xy_min_mm": [
+    null,
+    null
+  ],
+  "xy_max_mm": [
+    null,
+    null
+  ],
+  "speed_scale": 1.0
+}

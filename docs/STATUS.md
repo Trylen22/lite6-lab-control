@@ -41,12 +41,15 @@ Accelerations and the two-second hold are unchanged.
 
 ## Software checks
 
-48 offline tests pass. Coverage includes frame freshness/session identity,
+55 offline tests pass. Coverage includes frame freshness/session identity,
 duplicate-frame rejection, consecutive stable detection after missed frames,
 ambiguous-target rejection, calibration math, corridor bounds, seal-before-lift,
 verified output transitions, speed limits and release-gated vertical return.
-Ruff lint/format and browser JavaScript syntax checks pass. Native browser
-visual QA is unavailable; live HTTP and image delivery were verified directly.
+Ruff lint/format and browser JavaScript syntax checks pass. Live HTTP, image delivery, dispatch rejection and duplicate-job behavior were verified.
+Chrome inspection confirmed the live controls and completion status; corrected a
+stale sidebar label that incorrectly claimed motion was unavailable.
+The operator subsequently confirmed the first real UI-triggered pickup worked;
+its trace verifies seal, 10 mm lift, hold, release and return to observation height.
 
 ## Running services
 
@@ -54,9 +57,11 @@ visual QA is unavailable; live HTTP and image delivery were verified directly.
 - The producer owns the OAK connection. Dashboard reloads reuse that connection.
 - Device addresses, controller setup, model weights and trial records stay local.
 
-## Next work underway
+## Pick & Place button
 
-The user requested a Pick & Place UI button. It will start one complete guarded
-cycle through a separate controller worker, report progress and prevent duplicate
-starts. No movement may occur just from opening or restarting the dashboard.
-The browser UI remains observation-only until that implementation is validated.
+The button is live and the first operator-triggered cycle passed on hardware
+(22:58:08–22:59:23 UTC, about 75 seconds). It starts one complete guarded cycle
+through a separate worker, reports progress and prevents duplicate starts.
+Opening or restarting the dashboard never starts movement. The current local
+profile expires and is tied to the camera session and checked tabletop region.
+Speed and broader repeatability still need further supervised development.

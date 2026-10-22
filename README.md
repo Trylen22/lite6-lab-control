@@ -2,7 +2,7 @@
 
 A classroom-friendly vision and robotics workspace for the **UFACTORY Lite 6** and **Luxonis OAK-D Pro PoE**. Built independently of the JetMax project, with readable Python modules and a local browser interface.
 
-**The browser deck remains observation-only, with no robot motion endpoint.** A separate, default-dry-run script now supports the explicitly authorized single operator-taught suction trial described below. It is not vision-guided picking.
+**Pick & Place now runs one green-guided cycle per click:** align, approach, confirm suction, lift 10 mm, hold two seconds, lower/release, and return to camera height. The first UI cycle passed on hardware. It uses a session-bound local tabletop calibration, not general 3D scene understanding.
 
 ## What works now
 
@@ -13,7 +13,7 @@ A classroom-friendly vision and robotics workspace for the **UFACTORY Lite 6** a
 - Read-only UFACTORY SDK telemetry: firmware, controller state code, errors/warnings, tool pose, and six joint angles.
 - Explicit freshness indicators: a lost camera or robot connection is reported rather than treated as a valid observation.
 
-All detection coordinates are **image pixels**. There is no camera-to-robot calibration or automatic picking yet.
+Detection coordinates are **image pixels**. The pickup worker uses a separately measured fixed-height XY response and taught suction reference to convert image error into bounded motion. YOLO detections do not command the arm.
 
 ## Quick start on the laptop
 
@@ -72,6 +72,8 @@ labdeck/
   yolo.py                   CPU model preprocessing, inference, and box decoding
   robot.py                  Small read-only boundary around the UFACTORY SDK
   server.py                 HTTP endpoints and independent observation workers
+  jobs.py                   One explicit pickup job; duplicate-start protection
+  automatic_pick.py         Session checks, alignment, pickup and camera return
 scripts/
   camera_preview.py         Owns the OAK pipeline; serves fresh local frames
   discover_camera.py        Enumerates OAK devices without starting a stream
@@ -136,10 +138,9 @@ borrow a contact from another robot, object or session. See
 [current physical validation](docs/STATUS.md) before hardware use.
 
 A measured local XY fit and feedback alignment have passed on hardware.
-Pickup remains blocked by the present low-height wrist configuration; the
-read-only `python -m labdeck.green_pick --block-unchanged` plan correctly rejects
-that path. Do not bypass the IK guard. The UI displays saved fit measurements;
-there are still no browser motion endpoints or gesture movement policies.
+An earlier low-height wrist configuration was rejected by the IK guard. Later
+relocation and shallow contact teaching established the current working region.
+Do not reuse those old poses or bypass IK checks. Gesture policies remain future work.
 
 The relocated local prototype also separates `green_teach` (approach only),
 `contact_pick` (one operator-bounded seal search and pick), and
@@ -149,3 +150,19 @@ repeat supports explicit speed selection; the next test is authorized up to
 `--speed-scale 1.3225` (two compounded 15% increases). Suction turns ON
 before final descent, and neither speed adjustment nor failed seal permits a
 deeper contact. See the latest status before using any experimental motion CLI.
+
+## Using Pick & Place
+
+Select Color / Green with one visible block, at the calibrated observation height
+and wrist angle. The button shows why it is unavailable when a prerequisite fails.
+One click starts one cycle; progress appears below it and duplicate starts are
+rejected. Opening the page or polling status cannot start movement. Closing the
+page does not stop an active cycle; use the physical E-stop for an emergency.
+Normal launcher shutdown waits for its active job.
+
+The ignored `local/automation.json` stores camera-session identity, expiry,
+measured response, cup aim, checked XY bounds, contact floor and speed cap.
+`config/automation.example.json` documents its fields with deliberately unusable
+geometry. Do not turn that example into a profile by guessing coordinates.
+Revalidate after camera restart, mounting/contact changes or session expiry.
+Traces stay in ignored `local/trial_logs/`.

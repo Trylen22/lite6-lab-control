@@ -51,3 +51,8 @@ in docs/STATUS.md, preserve detailed history in docs/SESSION_LOG.md, and maintai
 the classroom guide/architecture. Review staged content, commit and push completed
 work to the existing private repo as requested. Verify the remote before claiming
 a successful push.
+
+The Pick & Place UI is implemented. Its first operator-triggered hardware cycle
+passed, including release and camera-height return. Keep local automation profiles
+ignored and session-bound. Preserve single-job dispatch and full per-click
+preflight when extending the interface.

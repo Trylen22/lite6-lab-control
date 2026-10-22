@@ -1128,3 +1128,50 @@ footer span:nth-child(2) {
 #cup-aim-guide[hidden] {
   display: none;
 }
+
+.pickup-controls {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px 18px;
+  align-items: center;
+  border-top: 1px solid #e1e5de;
+}
+.pickup-button {
+  background: #284f3e;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  padding: 14px 22px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+}
+.pickup-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.pickup-status {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+}
+.pickup-status strong {
+  text-transform: capitalize;
+}
+.pickup-status span {
+  color: #637168;
+}
+.pickup-controls p {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  color: #637168;
+}
+@media (max-width: 600px) {
+  .pickup-controls {
+    grid-template-columns: 1fr;
+  }
+}

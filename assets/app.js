@@ -1,5 +1,5 @@
-/* Browser lesson: HTTP carries observations and host-only vision settings.
- * There is deliberately no keyboard/mouse robot control and no motion fetch().
+/* Browser lesson: observations/settings are separate from one explicit pickup.
+ * One button POST requests one guarded cycle; no coordinates enter the request.
  * All hardware-derived text uses textContent, never interpolated HTML.
  */
 "use strict";
@@ -9,6 +9,7 @@ let maskVisible = false;
 let pending = false;
 let initialized = false;
 let recovering = false;
+let startingPickup = false;
 const pageNames = {
   workspace: "Vision workspace",
   robot: "Robot telemetry",
@@ -297,8 +298,30 @@ async function refresh() {
     }
     $("empty-state").hidden = v.detections.length > 0;
     telemetry(r);
+    const job = data.job || {
+      state: "unavailable",
+      message: "Pickup unavailable",
+    };
+    const running = job.state === "running";
+    $("pick-place").disabled = startingPickup || running || !data.pickup?.ready;
+    $("pick-place").textContent = running ? "Cycle running…" : "Pick & Place";
+    $("pickup-phase").textContent = running
+      ? job.phase.replaceAll("_", " ")
+      : job.state === "complete"
+        ? "Cycle complete"
+        : job.state === "failed"
+          ? "Cycle stopped"
+          : "Ready for checks";
+    $("pickup-message").textContent =
+      running || job.state === "complete" || job.state === "failed"
+        ? job.message
+        : data.pickup?.reason || "Pickup unavailable";
   } catch (error) {
     recovering = true;
+    $("pick-place").disabled = true;
+    $("pickup-phase").textContent = "Disconnected";
+    $("pickup-message").textContent =
+      "Waiting for the local dashboard. Closing the page does not stop an active cycle.";
     $("camera-state").textContent = "Disconnected";
     $("robot-state").textContent = "Unavailable";
     ["camera-dot", "stream-dot", "robot-dot"].forEach((id) => dot(id, false));
@@ -341,11 +364,13 @@ async function refreshCalibration() {
       guide.style.top = `${(100 * fit.aim_px[1]) / fit.resolution[1]}%`;
     }
     $("calibration-detail").textContent =
-      fit.status === "placement_guide_only"
-        ? "Arm relocated and idle. Slide the green marker onto the yellow CUP AIM guide. New contact teaching is required."
-        : fit.aim_px
-          ? `Recorded aim (${fit.aim_px.map((x) => x.toFixed(1)).join(", ")}) px · fit error ${fit.max_residual_px.toFixed(2)} px. Valid only at the taught height and wrist orientation.`
-          : "No recorded XY fit. Pixels are not pickup coordinates.";
+      fit.status === "tabletop_profile"
+        ? "Validated fixed-height tabletop profile · one green block · return to camera height after release."
+        : fit.status === "placement_guide_only"
+          ? "Arm relocated and idle. Slide the green marker onto the yellow CUP AIM guide. New contact teaching is required."
+          : fit.aim_px
+            ? `Recorded aim (${fit.aim_px.map((x) => x.toFixed(1)).join(", ")}) px · fit error ${fit.max_residual_px.toFixed(2)} px. Valid only at the taught height and wrist orientation.`
+            : "No recorded XY fit. Pixels are not pickup coordinates.";
   } catch (_) {
     $("cup-aim-guide").hidden = true;
     $("calibration-detail").textContent = "Calibration status unavailable.";
@@ -353,3 +378,32 @@ async function refreshCalibration() {
 }
 refreshCalibration();
 setInterval(refreshCalibration, 3000);
+
+// Only a deliberate click starts hardware work. Never invoke this from poll().
+$("pick-place").addEventListener("click", async () => {
+  if (startingPickup || $("pick-place").disabled) return;
+  startingPickup = true;
+  $("pick-place").disabled = true;
+  $("pickup-phase").textContent = "Starting checks";
+  try {
+    const response = await fetch("/api/pick-place", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Labdeck-Action": "pick-place",
+      },
+      body: "{}",
+      signal: AbortSignal.timeout(5000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Pickup could not start");
+    $("pickup-message").textContent = result.message;
+  } catch (error) {
+    $("pickup-phase").textContent = "Start not confirmed";
+    $("pickup-message").textContent =
+      error.message + ". Check status before trying again.";
+  } finally {
+    startingPickup = false;
+    await refresh();
+  }
+});

@@ -157,3 +157,25 @@ fresh camera detections verified. 48 offline tests and Ruff pass.
 
 User next requested a Pick & Place UI button. Implementation is underway; no
 additional physical pickup test is authorized solely for UI verification.
+
+## 2026-10-22 — One-cycle UI and first operator run
+
+Added explicit Pick & Place dispatch, a single-job worker, progress reporting,
+duplicate-start rejection, session-bound local profile validation and automatic
+camera-height return. Added fake HTTP/job and full-cycle tests: 55 offline tests
+pass; Ruff and JavaScript syntax checks pass. Read-only live preflight passed.
+Reloaded the dashboard while reusing the camera producer; no startup motion.
+
+The operator clicked the button and reported success. The local trace
+`button-pick-20261022T225808.json` independently records attachment feedback,
+10 mm lift, two-second hold, lowering, verified release and return to about
+266 mm observation height. Job completed at 22:59:23 UTC, about 75 seconds
+after dispatch. This run began already aligned; prior CLI moved-block trials
+provide separate retargeting evidence. User wants faster development and
+better workflow; current speed cap remains unchanged.
+
+Chrome access became available afterward. Read-only Studio inspection confirmed
+normal position mode at the returned camera height. Inspected the custom deck
+in Chrome and corrected stale sidebar/phase labels. Did not operate Studio jog,
+tool or speed controls. Most cycle time is vertical approach and return at the
+current travel cap; higher-speed tuning remains a separate supervised change.
