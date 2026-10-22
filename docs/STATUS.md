@@ -54,3 +54,11 @@ Passed: shell syntax check, local host-inventory execution on the development wo
 - Camera fallback address responded to two source-bound pings with zero packet loss. DepthAI listed one TCP/IP device in `X_LINK_BOOTLOADER` state.
 - Stored camera endpoint and MAC locally; documented reproducible network approach. No camera configuration, firmware, pipeline, or robot motion changes.
 - Next: verify camera model and inspect an image stream on operator request.
+
+## Local color stream verified
+
+- Connected explicitly to the confirmed OAK endpoint and started a temporary CAM_A color pipeline. Device reports OAK-D-PRO-POE, OV9782 color sensor, and two OV9282 mono sensors.
+- Added localhost-only preview server with a bounded frame queue, frame freshness reporting, current JPEG, and MJPEG. Requested 640 x 400 at 15 FPS.
+- Verified fresh health response and decoded/visually inspected a current JPEG. A two-second MJPEG sample contained 31 frame boundaries. Verified script syntax.
+- Preview URL on the laptop: http://127.0.0.1:8090/ . Process intentionally remains running for the operator. Browser automation was unavailable, so the page must be opened by the operator; HTTP and image delivery were verified directly.
+- Dependencies pinned for this laptop in requirements-preview.txt. Diagnostic images remain ignored locally. No continuous recording, firmware flash, persistent camera settings, IR emitter commands, or arm control.

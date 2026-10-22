@@ -37,3 +37,16 @@ python3 -m venv .venv
 ```
 
 This enumerates devices without opening a camera or starting a stream. No discovery result does not establish absence: power, subnet, cabling, firewall, and device state can affect discovery. These dependency versions were tested on the laptop, not on either Nano.
+
+## Local live color preview
+
+```bash
+.venv/bin/python -m pip install -r requirements-preview.txt
+.venv/bin/python scripts/camera_preview.py --ip <confirmed-camera-address>
+```
+
+Open `http://127.0.0.1:8090/` on this laptop. The preview requests CAM_A color at 640 x 400 and 15 FPS, with a small nonblocking queue. `/health` reports frame freshness; `/snapshot.jpg` returns a current JPEG; `/stream.mjpg` provides MJPEG. The server binds only to localhost, so other lab computers cannot access it directly. It does not continuously record images. Stop the foreground command with Ctrl+C. Do not launch a second instance while one is running.
+
+This starts a temporary camera pipeline. It does not flash firmware, persist camera network settings, operate the IR emitters, or control the arm. The SDK may report optional bootloader updates; this utility does not perform them. Capture failure stops the process instead of automatically rebooting/reconnecting the device.
+
+Verified on the laptop with OAK-D-PRO-POE and its OV9782 color sensor. The original Nano has not been validated. Based on the [official DepthAI camera output example](https://docs.luxonis.com/software-v3/depthai/examples/camera/camera_output).
