@@ -40,3 +40,7 @@ The operator authorized one pickup, two-second hold, and release, and stated the
 ## Operator-taught approach pose recorded
 
 The operator manually aligned the suction cup over the block with a slight gap. A fresh getter-only SDK read was saved with timestamp, pose, joint angles, and error/status codes under ignored local/taught_poses/. Error/warning codes were zero. This records an approach observation, not contact height or independently verified TCP geometry. No motion or suction command was sent. Next: operator establishes light contact without compressing/pushing the block, then records a separate contact pose.
+
+## Contact candidate recorded
+
+The operator reported pressing the cup onto the block. A getter-only contact candidate was saved locally: it is 3 mm below the taught approach with unchanged X/Y/orientation. Error/warning codes remained zero. Cup compression/light-contact quality has not been clarified, so the record is not marked verified and no cycle or suction was initiated.
