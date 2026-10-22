@@ -23,7 +23,7 @@ Updated 2026-10-22. Historical connection attempts are preserved in [session his
 
 ## Explicit boundaries
 
-No robot motion, enable, reset, fault clearing, mode changes, or tool commands were sent. No movement endpoint exists. No camera firmware/network write, continuous recording, cloud inference, or IR emitter control was added. There is no camera-to-robot calibration or lab-part training yet.
+The browser deck has no movement endpoint and sends no enable, reset, fault clearing, mode change, or tool commands. Separate supervised scripts have issued the authorized suction tests described below; no arm movement command has been sent by this project. Operator changes through Studio are separate from our scripts. No camera firmware/network write, continuous recording, cloud inference, or IR emitter control was added. There is no camera-to-robot calibration or lab-part training yet.
 
 ## Next
 
@@ -56,3 +56,11 @@ Added a separate default-dry-run taught trial script, with a maximum 2.1 mm vert
 The script issued suction at the taught light-contact pose. SDK attachment confirmation timed out (return code 41). The attachment gate prevented every motion command. Cleanup released suction and ended the release pulse at the supported contact. A separate getter-only inspection confirmed the pose unchanged, zero error/warning codes, and all tool outputs low. No lift/hold/lower motion occurred. No automatic retry was attempted.
 
 Next diagnostic is operator observation of whether the pump ran/formed a seal, then checking the tool's physical seal and correct feedback mapping. A porous wooden surface, insufficient lip seal, pneumatic/wiring issue, or unsuitable feedback channel are possibilities, not established diagnoses. Actual logs remain under ignored local/trial_logs/.
+
+## Repositioned stationary suction diagnostic
+
+The operator reported an audible pump, an earlier lifted cup edge, and manual repositioning. Fresh readback confirmed approximately 9.5 mm X and 9.2° pitch change, invalidating the earlier taught path. A separate diagnostic applied one two-second suction pulse at the newly inspected stationary pose, with no arm-movement API call.
+
+Outputs confirmed suction on; every sampled default vacuum state was 0 (no pickup feedback), with all three tool inputs also 0. After release, outputs were all low and vacuum state -1 (off). Pose remained stationary. This demonstrates command/output operation, not a successful seal. No lift or additional downward pressure was attempted. Operator again requested a pickup; first resolve cup seating/surface seal and record the new geometry.
+
+Added the commented diagnostic utility and two offline checks covering pulse cleanup without motion and refusal after a changed pose. Diagnostic records remain ignored locally.

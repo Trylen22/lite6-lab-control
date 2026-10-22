@@ -110,3 +110,9 @@ The model is downloaded explicitly rather than committed or fetched silently at 
 Only an explicit `--execute` runs one cycle: suction with attachment feedback → taught lift → monitored two-second hold → lower to contact → release and end the release pulse. No attachment feedback means no lift. A motion/feedback failure away from confirmed contact preserves the tool state for the operator; it does not automatically descend or release. Use the physical emergency stop for an emergency; closing the terminal/disconnecting the SDK is not a certified stop.
 
 This script exists for the user's specifically authorized supervised trial. Do not execute it as a classroom example or reuse old coordinates. The actual local records, preflight inspection, operator presence, tool configuration, clear taught path, and unchanged block placement are prerequisites. Read the source and trial notes before use.
+
+## Stationary suction diagnosis
+
+`scripts/check_suction.py` inspects tool state by default. Its explicit `--pulse --pose-record <fresh-inspection.json>` option applies one two-second suction pulse at the inspected stationary pose, logs the vacuum state and all available tool inputs, then attempts release and returns the release output low. It has no arm-movement call. A changed pose, active controller, nonzero outputs, or queued commands refuses the pulse.
+
+The SDK vacuum state means `-1 = tool off`, `0 = no pickup feedback`, and `1 = pickup feedback`. A successful output command or audible motor is not pickup confirmation. A missing seal is investigated at rest; it does not justify bypassing the attachment gate or descending to guessed coordinates. Any manual repositioning invalidates the previous taught path until new geometry is recorded.
