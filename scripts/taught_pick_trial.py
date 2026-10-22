@@ -26,6 +26,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from labdeck.suction import checked_vacuum
+from labdeck.motion_profile import validate_speed_scale
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -84,8 +85,7 @@ def perform_cycle(
     If a movement/feedback check fails away from contact, preserve the tool state
     and require operator recovery instead of blindly descending or dropping.
     """
-    if not math.isfinite(speed_scale) or not 1 <= speed_scale <= 1.15:
-        raise ValueError("Speed scale must be between 1.0 and the authorized 1.15")
+    validate_speed_scale(speed_scale)
     at_contact = start_pose is None
     suction_started = False
 

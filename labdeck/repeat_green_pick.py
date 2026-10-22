@@ -1,7 +1,7 @@
 """Return to the new observation pose and repeat ONE checked green pick.
 
 The operator confirmed the first relocated lift and requested a repeat with
-15 percent faster movement and continuous vertical approaches. No indefinite
+successive 15 percent speed increases and continuous vertical approaches. No indefinite
 loop, extra compression, contact search extension, mode change or fault reset.
 The final approach remains slow and never passes the newly sealed contact floor.
 """
@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from .contact_pick import search_contact
+from .motion_profile import validate_speed_scale
 from .calibration import correction_mm
 from .calibration_motion import CalibrationArm, ROOT, value
 from .green_calibrate import FOLDER, observe, save
@@ -22,6 +23,7 @@ from scripts.taught_pick_trial import perform_cycle
 
 def retry_seal(failed_path, execute, speed_scale):
     """One changed-sequence retry at the SAME floor; default read-only plan."""
+    validate_speed_scale(speed_scale)
     failed = json.loads(failed_path.read_text())
     if (
         failed.get("result") != "aborted_no_automatic_recovery"
@@ -121,8 +123,10 @@ def main():
         help="Explicit fresh failed-seal record; one same-floor changed-sequence retry",
     )
     args = parser.parse_args()
-    if not 1 <= args.speed_scale <= 1.15:
-        parser.error("Speed scale must be 1.0 through the authorized 1.15")
+    try:
+        validate_speed_scale(args.speed_scale)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.retry_from is not None:
         retry_seal(args.retry_from, args.execute, args.speed_scale)
         return

@@ -145,6 +145,7 @@ The relocated local prototype also separates `green_teach` (approach only),
 `contact_pick` (one operator-bounded seal search and pick), and
 `repeat_green_pick` (one camera-guided return/repeat). Each defaults to a read-only
 plan and requires fresh local teaching/trial records for execution. The verified
-repeat supports the explicitly authorized `--speed-scale 1.15`; suction turns ON
+repeat supports explicit speed selection; the next test is authorized up to
+`--speed-scale 1.3225` (two compounded 15% increases). Suction turns ON
 before final descent, and neither speed adjustment nor failed seal permits a
 deeper contact. See the latest status before using any experimental motion CLI.

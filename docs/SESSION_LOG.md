@@ -124,3 +124,11 @@ descent; a further stationary ON readback showed all-low despite SDK ACK. Added
 verified ordered individual-output fallback, then completed same-floor repeat:
 seal, 10 mm lift at 2.3 mm/s, hold two seconds, lower/release. Final idle and
 release I/O verified. No deeper retry or extra cycle. Actual traces local.
+
+### Second speed increase staged during manual setup
+
+Operator requested another +15% while planning to move the block and jog the
+camera upward. Implemented a shared cap of 1.3225 (1.15 squared), retaining
+read-only defaults and all other gates. New speed not yet tried on hardware.
+37 offline tests/Ruff pass. No robot command issued during operator manual
+handoff; fresh ready/pose/camera checks remain required for next execution.

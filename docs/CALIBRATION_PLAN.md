@@ -160,8 +160,10 @@ The new seal pose supplies the next contact floor; old compressed poses do not.
 confirmed first cycle, and `--speed-scale 1.15`, it returns continuously to the
 new observation pose, reacquires green and corrects a bounded local XY error,
 then makes one continuous high approach. Suction must be ON and output-verified
-BEFORE the final bounded contact search. Scale is capped at the user-authorized
-15% increase; it changes speed, not acceleration, hold duration or contact floor.
+BEFORE the final bounded contact search. Scale is capped by `labdeck.motion_profile` at the current user-authorized
+limit, 1.3225 after two compounded 15% increases. It changes speed, not
+acceleration, hold duration or contact floor. The second increase awaits its
+first hardware trial.
 One changed-sequence same-floor retry requires an explicit fresh failed-seal
 record. It never extends the floor or creates an unbounded retry loop.
 

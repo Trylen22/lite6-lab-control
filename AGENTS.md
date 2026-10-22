@@ -83,3 +83,14 @@ completed, with final idle/release verified. No extra cycle is authorized by
 this completed repeat. Current taught floor is the NEW relocated seal floor;
 never fall back to the old deeply compressed contact. General workspace and
 gesture motion remain out of scope. Active old calibration stays invalidated.
+
+## Pending new-location test and second speed increase
+
+User plans manual Z-only jogging to observation height (~266 mm) and a small
+block move, then will report ready. Keep autonomous motion stopped during this
+handoff. They authorized another 15% speed increase: total scale 1.3225 from
+original rates, enforced in shared motion_profile validation. Next requested
+test may select that scale explicitly; it is not yet hardware-tested. Preserve
+acceleration, known new contact floor, seal/release gates and bounds. A fresh
+manual-start pose/context check is required before executing the new-location
+test; never falsify completed-trial state to make an old script replay.

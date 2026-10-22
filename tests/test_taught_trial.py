@@ -72,10 +72,32 @@ class TaughtCycle(unittest.TestCase):
         self.assertEqual(arm.pose, LOW)
         self.assertFalse(arm.on)
 
+    def test_second_fifteen_percent_increase_preserves_path_and_seal_gate(self):
+        arm = FakeArm()
+        speeds = []
+        move = arm.set_position
+
+        def capture(*pose, **kwargs):
+            speeds.append((kwargs["speed"], kwargs["mvacc"]))
+            return move(*pose, **kwargs)
+
+        arm.set_position = capture
+        with contextlib.redirect_stdout(io.StringIO()):
+            perform_cycle(arm, LOW, HIGH, [], sleep=lambda _: None, speed_scale=1.3225)
+        self.assertEqual(speeds, [(2.645, 5), (2.645, 5)])
+        self.assertEqual(arm.pose, LOW)
+        self.assertFalse(arm.on)
+        failed_seal = FakeArm(seal=False)
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(RuntimeError):
+            perform_cycle(
+                failed_seal, LOW, HIGH, [], sleep=lambda _: None, speed_scale=1.3225
+            )
+        self.assertFalse(any(call[0] == "move" for call in failed_seal.calls))
+
     def test_unapproved_speed_scale_rejected_before_tool_or_motion(self):
         arm = FakeArm()
         with self.assertRaises(ValueError):
-            perform_cycle(arm, LOW, HIGH, [], speed_scale=1.16)
+            perform_cycle(arm, LOW, HIGH, [], speed_scale=1.3226)
         self.assertEqual(arm.calls, [])
 
     def test_success_is_single_lift_hold_lower_release(self):

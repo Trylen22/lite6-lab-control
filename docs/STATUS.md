@@ -221,3 +221,23 @@ remains invalidated after relocation; source records and trial traces preserve
 the distinction. All 34 offline tests pass, including failed seal/no lift,
 output ACK/both-low repair, output readback failure, timeout coverage, and the
 15% speed cap. Ruff and browser syntax checks pass.
+
+## Next test staged: second 15% speed increase, manual handoff pending
+
+Operator plans to raise the wrist manually back to observation height and move
+the block a few millimeters for a new-location test. They explicitly authorized
+another 15% speed increase. Compounding the earlier 1.15 yields 1.3225 relative
+to the original rates: travel 6.6125 mm/s, lift/lower 2.645 mm/s, final contact
+search 0.66125 mm/s. These rates are STAGED, not yet hardware-tested.
+
+A shared finite-number validator now enforces the 1.3225 cap in the repeat CLI,
+contact search, and pick cycle. Defaults remain read-only and scale 1.0; the
+next authorized test will explicitly select 1.3225. Acceleration, contact floor,
+seal/release gates, two-second hold and spatial limits are unchanged. All 37
+offline tests pass, including the new rate's unchanged path, no-lift-on-failed-
+seal behavior and rejection of nonfinite/above-cap values.
+
+No robot commands were sent for this update. Wait for operator ready after the
+manual jog/placement, then verify fresh pose, camera context and new target.
+The prior completed-trial state is not permission to replay an old log or
+bypass the manual-handoff checks.

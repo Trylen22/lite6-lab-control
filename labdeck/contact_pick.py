@@ -15,6 +15,7 @@ import numpy as np
 
 from .calibration_motion import CalibrationArm, ROOT, value
 from .suction import checked_vacuum
+from .motion_profile import validate_speed_scale
 from .green_calibrate import FOLDER, save
 from scripts.taught_pick_trial import perform_cycle
 
@@ -28,8 +29,7 @@ def search_contact(arm, start, events, sleep=time.sleep, speed_scale=1.0):
     There is no force sensing claim; the operator-defined floor is mandatory.
     """
 
-    if not 1 <= speed_scale <= 1.15:
-        raise ValueError("Contact speed scale exceeds authorized 15 percent increase")
+    validate_speed_scale(speed_scale)
 
     def healthy_on():
         if value(arm.get_err_warn_code()) != [0, 0] or value(arm.get_state()) != 2:
