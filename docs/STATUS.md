@@ -32,3 +32,11 @@ Passed: shell syntax check, local host-inventory execution on the development wo
 - Ethernet ping: two replies, zero packet loss.
 - HTTP on port 18333: 200 OK; page title UFactory Studio.
 - Network and web connectivity are now established. Robot identity, status, and camera access remain to be inspected. No motion or robot configuration commands sent.
+
+## Camera discovery attempt
+
+- Ethernet-only discovery found one additional responding address besides the arm and laptop. This remains an unverified camera candidate and may be switch infrastructure. Actual address and MAC are stored locally.
+- No open TCP 11490 result in a limited subnet probe; DepthAI discovery returned zero devices. Neither check establishes camera absence.
+- Added a discovery-only utility and pinned the dependency versions installed in this project's ignored virtual environment on the Linux x86_64/Python 3.12 laptop. Original Nano compatibility is not established.
+- Utility executed successfully and reported zero devices. No camera stream, firmware update, configuration write, or robot motion was initiated.
+- Next: confirm camera power/link and compare the label MAC with the candidate address, then repeat discovery.

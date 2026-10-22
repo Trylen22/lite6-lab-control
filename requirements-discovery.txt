@@ -1,0 +1,4 @@
+# Verified on development laptop: Python 3.12, Linux x86_64.
+# Not validated for the original Jetson Nano.
+depthai==3.11.0
+numpy==2.5.4

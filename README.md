@@ -27,3 +27,13 @@ Repository and local configuration structure are ready. No lab device has been c
 Use this repository for all Lite 6/OAK work. Keep JetMax changes in its own repository. Review `git diff` and staged files, commit a coherent change, and push after each completed milestone. Never commit passwords, SSH private keys, access tokens, camera recordings, or unreviewed device logs. Record validation honestly: offline checks do not establish physical operation.
 
 See [project status](docs/STATUS.md) for the next session.
+
+## Camera discovery (development laptop)
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-discovery.txt
+.venv/bin/python scripts/discover_camera.py
+```
+
+This enumerates devices without opening a camera or starting a stream. No discovery result does not establish absence: power, subnet, cabling, firewall, and device state can affect discovery. These dependency versions were tested on the laptop, not on either Nano.
