@@ -62,6 +62,12 @@ def observe():
             cv2.IMREAD_COLOR,
         )
         candidates, _ = detect_color(image, "green", min_area=100)
+        if not candidates:
+            # A single dropped color mask is not a movement authorization or a
+            # reason to reuse an old centroid. Reset the consecutive window and
+            # wait for fresh detections within the existing five-second deadline.
+            centers.clear()
+            continue
         if len(candidates) != 1:
             raise RuntimeError(f"Expected one green candidate, found {len(candidates)}")
         x, y, w, h = candidates[0]["bbox"]
@@ -70,7 +76,10 @@ def observe():
         centers.append(candidates[0]["center"])
         if len(centers) == 3:
             if np.ptp(np.array(centers), axis=0).max() > 2:
-                raise RuntimeError("Marker unstable across three fresh frames")
+                # Slide the window; movement still requires THREE consecutive
+                # distinct detections with the original <=2 pixel spread.
+                centers.pop(0)
+                continue
             return {
                 "center_px": np.mean(centers, axis=0).tolist(),
                 "session": session,

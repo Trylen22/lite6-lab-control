@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from .contact_pick import search_contact
+from .cycle_return import return_to_observation
 from .motion_profile import validate_speed_scale
 from .calibration import correction_mm
 from .calibration_motion import CalibrationArm, ROOT, value
@@ -96,11 +97,14 @@ def retry_seal(failed_path, execute, speed_scale):
                 release_pose=release,
                 speed_scale=speed_scale,
             )
-            record["final_pose"] = robot.check()
-            record["result"] = "repeat_completed_release_io_verified"
+            record["release_pose"] = robot.check()
             teaching = json.loads((FOLDER / "teaching.json").read_text())
+            record["final_pose"] = return_to_observation(
+                robot, teaching["watch_pose"][2], 5 * speed_scale, record["events"]
+            )
+            record["result"] = "repeat_completed_release_io_verified"
             teaching.update(
-                status="repeat_completed_waiting_physical_release",
+                status="repeat_completed_at_observation_height",
                 last_pose=record["final_pose"],
                 latest_contact_pose=contact,
             )
@@ -134,7 +138,12 @@ def main():
     contact_record = json.loads((FOLDER / "relocated-contact.json").read_text())
     relocation = json.loads((FOLDER / "relocation.json").read_text())
     if (
-        teaching["status"] != "contact_seal_and_pick_verified_waiting_physical_release"
+        teaching["status"]
+        not in {
+            "contact_seal_and_pick_verified_waiting_physical_release",
+            "contact_seal_and_pick_verified_at_observation_height",
+            "repeat_completed_at_observation_height",
+        }
         or not contact_record["seal_feedback_verified"]
     ):
         raise RuntimeError("Requires the completed first relocated seal/pick trial")
@@ -251,12 +260,15 @@ def main():
                 release_pose=release,
                 speed_scale=args.speed_scale,
             )
-            record["final_pose"] = robot.check()
+            record["release_pose"] = robot.check()
+            record["final_pose"] = return_to_observation(
+                robot, watch[2], 5 * args.speed_scale, record["events"]
+            )
             record["tool_outputs"] = value(robot.arm.get_tgpio_output_digital())
             record["pickup_inputs"] = value(robot.arm.get_tool_digital_input())
             record["result"] = "repeat_completed_release_io_verified"
             teaching.update(
-                status="repeat_completed_waiting_physical_release",
+                status="repeat_completed_at_observation_height",
                 last_pose=record["final_pose"],
                 latest_contact_pose=low,
             )

@@ -13,6 +13,7 @@ import json
 import numpy as np
 
 from .calibration_motion import CalibrationArm, ROOT
+from .cycle_return import return_to_observation
 from .green_calibrate import MODEL, SEED, observe, same_context, save
 from scripts.taught_pick_trial import perform_cycle
 
@@ -107,10 +108,13 @@ def main():
             # Exceptions at contact release the tool; uncertain poses preserve
             # tool state for operator recovery. No automatic repeat is attempted.
             perform_cycle(robot.arm, contact, hover, events, release_pose=release)
-            robot.check()
+            record["release_pose"] = robot.check()
+            record["final_pose"] = return_to_observation(
+                robot, seed["watch_pose"][2], 5, events
+            )
             record["result"] = "cycle_completed_release_io_verified"
             print(
-                "Single calibrated pick completed; stopped at 2 mm release clearance",
+                "Single calibrated pick completed; returned to observation height",
                 flush=True,
             )
     except BaseException as exc:

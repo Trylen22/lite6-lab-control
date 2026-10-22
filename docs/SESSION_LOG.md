@@ -132,3 +132,28 @@ camera upward. Implemented a shared cap of 1.3225 (1.15 squared), retaining
 read-only defaults and all other gates. New speed not yet tried on hardware.
 37 offline tests/Ruff pass. No robot command issued during operator manual
 handoff; fresh ready/pose/camera checks remain required for next execution.
+
+### New-location retargeting and return-height completion
+
+Operator returned the wrist to the calibrated observation height and confirmed
+clear travel space. Green was roughly 10 cm from the previous pickup spot.
+Read-only IK checked transit and candidate descent regions. Small XY probes
+measured current image response; transient missing masks exposed an overly
+brittle observation check. Replaced immediate missed-frame abort with bounded
+five-second acquisition requiring three consecutive fresh stable detections;
+ambiguity, staleness and camera-session changes still abort.
+
+Measured response passed fit and independent checks but changed the initial
+endpoint estimate. Fresh read-only route previews were made from the measured
+response; no pickup coordinate was substituted blindly. Reused those fresh
+measurements with live origin/camera checks, then verified image response after
+every <=5 mm transit. Net displacement 103.331 mm; 22 corrections, maximum image
+response residual 2.363 px; final estimated error 0.233 mm. Actual aligned descent
+was checked separately. Sealed, lifted 10 mm, held two seconds, lowered/released.
+The operator requested automatic post-cycle return. Added a shared release-gated
+vertical return to automatic green workflows, and executed that return now to
+the original observation height with XY/wrist unchanged. Final idle/release and
+fresh camera detections verified. 48 offline tests and Ruff pass.
+
+User next requested a Pick & Place UI button. Implementation is underway; no
+additional physical pickup test is authorized solely for UI verification.

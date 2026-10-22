@@ -1,96 +1,53 @@
 # Project instructions
 
-## Scope
+## Scope and classroom purpose
 
-This repository owns Lite 6 and OAK-D Pro PoE work. Do not modify, deploy to, or commit changes in the sibling JETMAX project as part of this work. Do not copy its credentials, device addresses, motion limits, saved poses, or camera offsets here.
+All Lite 6/OAK work belongs in this repo. Do not modify the sibling JETMAX repo
+or borrow its device addresses, poses, camera offsets or motion limits. Keep
+modules focused, heavily commented and educational: explain units, coordinate
+frames, SDK return codes, concurrency and failure handling. Never label pixels
+as robot targets without explaining the calibration and its domain.
 
-## Device work
+## Hardware authorization and current state
 
-Start with local inspection and read-only device status. Do not enable motion, release brakes, change I/O, operate a tool, reset network settings, flash firmware, or configure automatic startup without a concrete user request covering that operation. Confirm which physical device is being addressed. Before motion, establish the mounting, reachable emergency stop, tool/payload configuration, workspace, and low-speed trial with the operator present.
+The operator is present in the lab with the physical E-stop reachable. Mounting,
+controller-reported tool/load settings and supervised low-speed trials were
+established in this session. User authorized green-guided pickup development,
+bounded trials, two compounded 15% speed increases (maximum scale 1.3225), and
+return to observation height after every successful cycle. A moved-block test
+tracked about 103 mm, sealed/lifted/placed/released, and returned to camera height.
+See docs/STATUS.md and docs/SESSION_LOG.md for evidence and remaining limits.
 
-Do not reuse JetMax coordinates, calibration, or motion code as Lite 6 defaults. Do not make an example command move hardware on import or startup. Keep observation, manual motion, and automation separate. Document actual stop behavior; a dashboard stop is not automatically an emergency stop.
+The latest request explicitly covers adding a Pick & Place UI button. Each click
+may authorize ONE complete guarded cycle. Do not start motion on page load,
+server startup, failed detection, or an automatic repeat loop. Do not send a
+new physical test merely to test the button unless the user requests that run.
+Manual operator jogging/placement handoffs prohibit overlapping agent movement;
+re-read pose, tool outputs, controller state and camera context after a handoff.
+
+## Nonnegotiable controller boundaries
+
+Start with fresh read-only status. Do not enable motors, release brakes, reset
+faults, change modes/offsets/load, flash firmware, configure startup or change
+network settings without a concrete request covering that operation. Do not
+clear a stopped state merely to make a script pass. Reject unknown configurations.
+
+Use the new shallow seal reference, never the old deeply compressed contact.
+Keep the inspected fixed height/orientation/tabletop domain and checked travel
+bounds. Preview IK continuity/joint limits; IK does not prove obstacle clearance.
+Suction must be ON/output-verified before final search and independently sealed
+before lift. SDK paired writes can ACK yet leave both outputs low: use the checked
+suction helper. OFF/release is DO0=0, DO1=1; leave it asserted and verify input low.
+Return vertically only after release verification. Faults, lost targets, failed
+seal or uncertain pose never authorize deeper contact or blind recovery.
+Preserve the physical E-stop distinction from software UI controls.
 
 ## Configuration and version control
 
-Keep actual machine configuration and credentials under ignored `local/` or outside the repository. Commit sanitized examples. Do not embed secrets in scripts or remote URLs. Review staged content before pushing. Keep this repo private unless the user requests otherwise.
-
-Pin dependencies after confirming host and device compatibility. Record changes, checks, and remaining physical validation in docs/STATUS.md. Push completed work to this project's GitHub remote as requested by the user; never claim a push succeeded without checking it.
-
-## Classroom purpose
-
-The user requires this repo to be heavily commented, educational, and clean. Explain units, coordinate frames, preprocessing assumptions, SDK return codes, concurrency boundaries, and failure handling near the relevant code. Keep modules focused, format browser assets for reading, and maintain exercises, architecture, and an incremental roadmap in docs/. Never describe pixel detections as calibrated pickup targets. The user subsequently authorized one supervised pickup, a two-second hold, and release with the operator at the emergency stop. This authorization does not supply verified target/contact coordinates, TCP/tool configuration, or calibration. Two initial cycles stopped at attachment timeout before motion. After the operator adjusted contact, a stationary test confirmed feedback 1, and one explicitly authorized 2 mm upward lift/two-second hold/release-at-hover trial completed. There was no commanded descent into the compressed contact. Final pose and tool-off state were verified; actual object clearance is not independently measured. Preserve the feedback gate and the distinction between measured robot travel, cup compliance, operator observations, and camera calibration. Further repetitions or larger motions require a fresh concrete user request and validated current geometry. Establish those prerequisites before implementing/executing this specific cycle; do not broaden it into repeated automation.
-
-## Latest supervised trial and release finding
-
-The user authorized a 10 mm lift after the successful 2 mm test. The controller completed the bounded 10 mm sequence, but the user reported vacuum did not shut off. A no-motion correction sent the manufacturer OFF/release state (DO0 low, DO1 high) and left it asserted. Prior code's extra reset of DO1 to low was an unvalidated assumption and is now removed. Both scripts now verify OFF/release outputs plus pickup input low; do not reintroduce an all-low tool baseline or call a command ACK physical release. Operator physical pump/block confirmation remains distinct from I/O. No additional movement is authorized by the subsequent planning/comparison questions.
-
-## Current calibration authorization and manual handoff
-
-The user's latest concrete request authorizes supervised green-block movement
-calibration and coordinated pickup development. Physical release and suction
-stopped were explicitly confirmed. This supersedes the earlier statement that
-planning questions alone did not authorize movement. Upward-only observation
-positioning has reached Z=200 mm. The operator then offered to jog the camera
-into view: no autonomous movement may overlap this manual handoff. Re-read the
-pose and reconcile it with the taught XY/orientation before resuming. XY response
-sampling and align-only motion have not been validated on hardware; descent and
-pickup need a validated aiming/contact relationship. Keep a bounded controller,
-seal feedback and the corrected release state. Gesture requests describe future
-work, not permission for unrestricted motion.
-
-## Measured alignment and current pickup blocker
-
-Subsequent operator vertical jogging reached a useful view. A local 20 mm XY
-response fit and independent checks passed, then a +5/+5 mm offset was corrected
-in five bounded image-guided moves. Operator confirmed block unchanged. Full
-pickup descent preflight then rejected wrist IK discontinuity near contact;
-NO descent/tool activation occurred. Current arm is idle at observation height,
-release I/O checked. Preserve this guard. Establish and validate a different
-continuous posture/path and re-teach contact before picking. Calibration is a
-local fixed-height experiment, not a general workspace or gesture policy.
-
-## Authorized relocation and placement handoff
-
-User subsequently requested moving the setup for pickup and confirmed clear
-space. Empty wrist moved +40 mm base X at fixed observation height in two slow
-segments; final idle/release verified. Previous fit archived and invalidated.
-UI yellow CUP AIM is now placement guidance only, not active pickup calibration.
-Operator has been asked to slide the green marker onto it, remove their hand
-and report positioned. Do not move while the operator is placing the block.
-New contact teaching and fresh calibration checks remain necessary.
-
-## Relocated block clearance checkpoint
-
-Operator reported block placed on guide. Live checks passed; two small XY guide
-corrections and a bounded vertical approach completed. Current arm is idle at
-10 mm above the historical sealed floor (this is NOT measured physical gap),
-manufacturer release outputs verified, no faults. Operator is being asked if
-cup is centered with a gap, off-center, or already touching. Wait for physical
-contact information before further descent; no newly taught contact or suction
-has occurred. Keep the arm stationary during this inspection/handoff.
-
-## Successful relocated pickup and authorized faster repeat
-
-Physical cup inspection reported centered and approximately 5 mm above contact.
-A bounded search sealed after 4 mm; 10 mm lift/hold/lower/release completed.
-Operator confirmed lift, then explicitly requested one return/repeat at 15%
-higher movement speeds with continuous approaches. A seal timeout caused no
-lift and released at contact. Restored suction-before-final-descent. Live ON
-ACK/all-low readback required a checked individual-output fallback; do not
-assume the SDK paired call actually enabled the pump. `labdeck.suction` now
-verifies states and preserves an already-ON seal. Same-floor faster repeat then
-completed, with final idle/release verified. No extra cycle is authorized by
-this completed repeat. Current taught floor is the NEW relocated seal floor;
-never fall back to the old deeply compressed contact. General workspace and
-gesture motion remain out of scope. Active old calibration stays invalidated.
-
-## Pending new-location test and second speed increase
-
-User plans manual Z-only jogging to observation height (~266 mm) and a small
-block move, then will report ready. Keep autonomous motion stopped during this
-handoff. They authorized another 15% speed increase: total scale 1.3225 from
-original rates, enforced in shared motion_profile validation. Next requested
-test may select that scale explicitly; it is not yet hardware-tested. Preserve
-acceleration, known new contact floor, seal/release gates and bounds. A fresh
-manual-start pose/context check is required before executing the new-location
-test; never falsify completed-trial state to make an old script replay.
+Actual device settings, poses, workspace profiles, weights and traces belong in
+ignored local/; commit sanitized examples. Keep credentials and secrets out of
+source/remote URLs. Pin confirmed dependencies. Record validation and limitations
+in docs/STATUS.md, preserve detailed history in docs/SESSION_LOG.md, and maintain
+the classroom guide/architecture. Review staged content, commit and push completed
+work to the existing private repo as requested. Verify the remote before claiming
+a successful push.

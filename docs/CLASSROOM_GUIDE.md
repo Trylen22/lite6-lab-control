@@ -96,3 +96,25 @@ Read each test's scene and expected outcome. The synthetic scenes verify color/g
 ## Suggested lab notes
 
 Record the hypothesis, settings, lighting conditions, expected behavior, actual behavior, and one limitation for each experiment. Save diagnostic images locally only when authorized; they are excluded from Git by default. Commit source and sanitized educational notes, with validation clearly distinguished from untested plans.
+
+## Lesson: retargeting a moved block
+
+The successful new-location experiment moved the wrist about 103 mm using image
+feedback, without manually teaching the new block location. Keep the observation
+height and wrist angle fixed. Measure the 2x2 response J, then solve
+`J * XY_correction = cup_aim_pixel - marker_pixel`. A fitted intercept locates the
+marker at the measurement origin; it is NOT automatically the cup's aim pixel.
+The aim has separate provenance from a position that actually sealed and lifted.
+
+Check a separate measurement point and compare predicted versus observed image
+movement at every short step. A destination estimate helps preview the transit
+region; the final aligned vertical approach gets its own fresh IK check. Stay
+within the tabletop/contact-height domain. Camera alignment and suction contact
+are separate checks. A missing mask resets the consecutive-frame window; three
+new stable detections are still required. Never reuse stale centroids to keep a
+robot moving. After seal-gated pickup and verified release, finish at observation
+height so the next block placement can be seen.
+
+Class exercise: explain why a single retargeting success differs from demonstrated
+repeatability across several positions, and why low image-fit residual alone
+cannot prove physical cup accuracy or obstacle clearance.

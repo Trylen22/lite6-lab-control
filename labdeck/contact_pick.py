@@ -16,6 +16,7 @@ import numpy as np
 from .calibration_motion import CalibrationArm, ROOT, value
 from .suction import checked_vacuum
 from .motion_profile import validate_speed_scale
+from .cycle_return import return_to_observation
 from .green_calibrate import FOLDER, save
 from scripts.taught_pick_trial import perform_cycle
 
@@ -210,11 +211,12 @@ def main():
             perform_cycle(
                 robot.arm, contact, lift, record["events"], release_pose=release
             )
-            robot.check()
-            record["result"] = "single_pick_completed_release_io_verified"
-            teaching["status"] = (
-                "contact_seal_and_pick_verified_waiting_physical_release"
+            record["release_pose"] = robot.check()
+            record["final_pose"] = return_to_observation(
+                robot, teaching["watch_pose"][2], 5, record["events"]
             )
+            record["result"] = "single_pick_completed_release_io_verified"
+            teaching["status"] = "contact_seal_and_pick_verified_at_observation_height"
             teaching["contact_pose"] = contact
             teaching["last_pose"] = robot.check()
             save(FOLDER / "teaching.json", teaching)
