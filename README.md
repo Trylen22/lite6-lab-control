@@ -58,6 +58,7 @@ If the deck is already running, open its URL rather than launching a second copy
 | [Classroom guide](docs/CLASSROOM_GUIDE.md) | Guided exercises and questions |
 | [Architecture](docs/ARCHITECTURE.md) | Data flow, processes, units, failure handling |
 | [Roadmap](docs/ROADMAP.md) | Staged plan through calibration and pick-and-place |
+| [Suction calibration plan](docs/CALIBRATION_PLAN.md) | Official reference geometry, mounting checks, and measurement procedure |
 | [Lab setup](docs/LAB_SETUP.md) | Network and hardware preparation |
 | [Current status](docs/STATUS.md) | Verified behavior and remaining limits |
 | [Session history](docs/SESSION_LOG.md) | How we reached the current setup |

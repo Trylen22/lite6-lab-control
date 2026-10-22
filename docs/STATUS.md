@@ -28,3 +28,7 @@ No robot motion, enable, reset, fault clearing, mode changes, or tool commands w
 ## Next
 
 Open the deck in the lab browser, review the layout and mode controls, and follow [the classroom guide](CLASSROOM_GUIDE.md). Document mounting/tool geometry and lighting. See [the roadmap](ROADMAP.md) for calibration and later supervised motion checkpoints. The user explicitly excluded motion from this phase.
+
+## Suction calibration research
+
+Found official camera dimensions, Lite vacuum URDF, UFACTORY OAK mount STEP, and the vendor's OAK/Lite 6 grasping example. The example uses a tuned 55 mm flange-to-grip parameter; the URDF defines a 61 mm local TCP. Neither establishes the actual installed cup geometry. Research and a measured-calibration procedure are documented in CALIBRATION_PLAN.md. No vendor motion demo was executed, no nominal offsets applied, and no robot/camera configuration was changed. Physical mounting confirmation remains pending.
