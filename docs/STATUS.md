@@ -40,3 +40,9 @@ Passed: shell syntax check, local host-inventory execution on the development wo
 - Added a discovery-only utility and pinned the dependency versions installed in this project's ignored virtual environment on the Linux x86_64/Python 3.12 laptop. Original Nano compatibility is not established.
 - Utility executed successfully and reported zero devices. No camera stream, firmware update, configuration write, or robot motion was initiated.
 - Next: confirm camera power/link and compare the label MAC with the candidate address, then repeat discovery.
+
+## Additional candidate identification
+
+- Additional responding device offers SSH (Dropbear 2020.81), with tested web/RTSP/DepthAI ports closed.
+- MAC vendor lookup indicates Ubiquiti; the device is likely network infrastructure, but exact model has not been confirmed. Vendor discovery query received no reply.
+- No authentication, device configuration change, or stream initialization was attempted. Camera identification remains pending.
