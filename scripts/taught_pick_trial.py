@@ -52,8 +52,12 @@ def read_value(result, operation):
     return value
 
 
-def perform_cycle(arm, low, high, record, sleep=time.sleep):
+def perform_cycle(arm, low, high, record, sleep=time.sleep, release_at_hover=False):
     """Execute on an already checked arm; fake-arm tests exercise failure paths.
+
+    Optional release_at_hover implements the operator-requested small drop: it
+    releases only after reaching the bounded <=2.1 mm hover and completing the
+    monitored hold. It never descends into a compressed contact pose.
 
     Suction feedback must indicate attachment before any movement. On failure,
     suction is released ONLY when we know we are at the taught supported contact.
@@ -129,9 +133,17 @@ def perform_cycle(arm, low, high, record, sleep=time.sleep):
                 raise RuntimeError(
                     "Attachment feedback lost during hold; operator recovery required"
                 )
-        move(low, "lower_to_taught_contact")
-        at_contact = True
-        event("release_at_supported_contact")
+        if release_at_hover:
+            healthy()
+            confirm_pose(high)
+            event(
+                "release_at_authorized_small_hover",
+                drop_upper_bound_mm=high[2] - low[2],
+            )
+        else:
+            move(low, "lower_to_taught_contact")
+            at_contact = True
+            event("release_at_supported_contact")
         require_zero(
             arm.set_vacuum_gripper(False, wait=False, sync=False), "release suction"
         )
@@ -140,7 +152,11 @@ def perform_cycle(arm, low, high, record, sleep=time.sleep):
         # returns to its observed all-low starting outputs, without moving away.
         require_zero(arm.set_tgpio_digital(1, 0, sync=False), "end release pulse")
         suction_started = False
-        event("cycle_complete_at_contact")
+        event(
+            "cycle_complete_at_hover"
+            if release_at_hover
+            else "cycle_complete_at_contact"
+        )
     except Exception:
         if suction_started and at_contact:
             # Cleanup at contact is allowed only after a fresh pose confirms
@@ -175,6 +191,11 @@ def main():
         action="store_true",
         help="Run ONE taught cycle; otherwise inspect only",
     )
+    parser.add_argument(
+        "--release-at-hover",
+        action="store_true",
+        help="Explicit small-drop variant: release at <=2.1 mm hover, without descending",
+    )
     args = parser.parse_args()
     contact = json.loads(args.contact.read_text())
     approach = json.loads(args.approach.read_text())
@@ -200,6 +221,7 @@ def main():
     events = []
     outcome = {
         "executed": args.execute,
+        "release_at_hover": args.release_at_hover,
         "contact_file": args.contact.name,
         "approach_file": args.approach.name,
         "events": events,
@@ -245,7 +267,9 @@ def main():
         }
         print(json.dumps(outcome["preflight"], indent=2), flush=True)
         if args.execute:
-            perform_cycle(arm, low, high, events)
+            perform_cycle(
+                arm, low, high, events, release_at_hover=args.release_at_hover
+            )
         outcome["result"] = "completed" if args.execute else "preflight_only_passed"
     except Exception as exc:
         outcome["result"] = "aborted"

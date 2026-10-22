@@ -23,7 +23,7 @@ Updated 2026-10-22. Historical connection attempts are preserved in [session his
 
 ## Explicit boundaries
 
-The browser deck has no movement endpoint and sends no enable, reset, fault clearing, mode change, or tool commands. Separate supervised scripts have issued the authorized suction tests described below; no arm movement command has been sent by this project. Operator changes through Studio are separate from our scripts. No camera firmware/network write, continuous recording, cloud inference, or IR emitter control was added. There is no camera-to-robot calibration or lab-part training yet.
+The browser deck has no movement endpoint and sends no enable, reset, fault clearing, mode change, or tool commands. Separate supervised scripts have issued the authorized suction tests described below; the first authorized 2 mm upward trial has now completed as recorded below. Operator changes through Studio are separate from our scripts. No camera firmware/network write, continuous recording, cloud inference, or IR emitter control was added. There is no camera-to-robot calibration or lab-part training yet.
 
 ## Next
 
@@ -70,3 +70,13 @@ Added the commented diagnostic utility and two offline checks covering pulse cle
 The operator reported a fully sealed cup and explicitly requested suction/lift. Captured a fresh stationary contact and defined a new 2 mm base-frame +Z target with exactly unchanged X/Y/orientation; old coordinates were not reused. Preflight again passed with unchanged controller settings.
 
 The suction command returned SDK code 41 (attachment timeout), so the guard sent no lift. Cleanup released the tool at contact. Read-only verification confirmed unchanged pose, zero errors/warnings, all tool outputs low, and vacuum state off. Physical seal versus feedback-sensor/wiring behavior remains unresolved; the sensor timeout alone does not establish which is wrong. Further blind retries were stopped.
+
+## First feedback-confirmed upward trial completed
+
+After the operator moved down 5 mm, the new contact differed from the prior light-touch region. Movement preparation was stopped; a stationary diagnostic first confirmed vacuum feedback 1 after about 0.3 seconds and maintained it for the rest of the pulse. It was released before the next step. No extra downward motion was sent.
+
+Captured that verified pose, defined an exactly 2 mm base-Z upward target with unchanged X/Y/orientation, and introduced/tested an explicit release-at-hover variant to avoid commanding a descent into the more compressed contact. Executed one specifically authorized trial: suction confirmed → 2 mm upward motion at 2 mm/s → two-second monitored hold → release at hover and end release pulse. The script completed successfully.
+
+A separate read-only postcheck confirmed the reached hover pose, idle controller, zero error/warning codes, all outputs low, and vacuum off. Physical object clearance/drop was not independently measured by the software; cup compliance may absorb some motion, so operator observation remains important. No vision-to-robot calibration is claimed.
+
+The default supported-contact release behavior is unchanged. Added an offline check for the explicit small-drop variant; existing no-seal and fault behavior checks remain. Trial records/coordinates are retained only locally.

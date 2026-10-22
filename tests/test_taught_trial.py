@@ -70,6 +70,19 @@ class TaughtCycle(unittest.TestCase):
         self.assertFalse(arm.on)
         self.assertEqual(arm.pose, LOW)
 
+    def test_explicit_small_drop_releases_after_only_upward_motion(self):
+        arm = FakeArm()
+        with contextlib.redirect_stdout(io.StringIO()):
+            perform_cycle(
+                arm, LOW, HIGH, [], sleep=lambda _: None, release_at_hover=True
+            )
+        self.assertEqual(
+            arm.calls,
+            [("vacuum", True), ("move", HIGH), ("vacuum", False), ("output", 1, 0)],
+        )
+        self.assertEqual(arm.pose, HIGH)
+        self.assertFalse(arm.on)
+
     def test_no_attachment_means_no_lift_and_contact_cleanup(self):
         arm = FakeArm(seal=False)
         with self.assertRaises(RuntimeError):
