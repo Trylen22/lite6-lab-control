@@ -1,0 +1,28 @@
+# Planning template only; no application reads this file yet.
+# Copy to local/lab.toml. Fill values from lab inspection, not JetMax defaults.
+[host]
+name = ""
+ssh_host = ""
+ssh_user = ""
+
+[robot]
+model = "UFACTORY Lite 6"
+label_model = "LI10"
+ip = ""
+
+[camera]
+model = "Luxonis OAK-D Pro PoE"
+ip = ""
+device_id = ""
+mount = "unknown" # arm-mounted or fixed; confirm physically
+
+[tool]
+model = "unknown"
+
+[validation]
+network_verified = false
+status_verified = false
+camera_stream_verified = false
+mounting_and_estop_verified = false
+payload_verified = false
+calibration_verified = false

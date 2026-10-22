@@ -1,0 +1,36 @@
+# Machine-specific and sensitive files
+/local/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Captures, diagnostic output, and hardware-specific data
+/data/
+/logs/
+/outputs/
+*.log
+*.bag
+*.db3
+*.mcap
+*.mp4
+*.mov
+*.avi
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
