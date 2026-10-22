@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Stream color video to localhost. No robot control or persistent camera writes."""
+
 import argparse
 import json
 import signal
@@ -28,7 +29,7 @@ def main():
 
         def do_GET(self):
             if self.path == "/":
-                body = b'''<!doctype html><html><head><title>OAK color preview</title>
+                body = b"""<!doctype html><html><head><title>OAK color preview</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>body{background:#111;color:#eee;font:18px sans-serif;margin:24px}
 img{max-width:100%;border:1px solid #555}a{color:#9cf}</style></head>
@@ -39,7 +40,7 @@ setInterval(async()=>{try{const r=await fetch('/health');const s=await r.json();
 document.getElementById('status').textContent=s.fresh?
 'Live | frames received: '+s.frames:'Feed unavailable or stale';}
 catch(e){document.getElementById('status').textContent='Preview server disconnected';}},1000);
-</script></body></html>'''
+</script></body></html>"""
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
@@ -51,8 +52,13 @@ catch(e){document.getElementById('status').textContent='Preview server disconnec
                 age = time.monotonic() - frame["time"]
                 fresh = frame["jpeg"] is not None and age < 3 and not stop.is_set()
                 if self.path == "/health":
-                    body = json.dumps({"fresh": fresh, "frames": frame["frames"],
-                                       "age_seconds": round(age, 3)}).encode()
+                    body = json.dumps(
+                        {
+                            "fresh": fresh,
+                            "frames": frame["frames"],
+                            "age_seconds": round(age, 3),
+                        }
+                    ).encode()
                     content_type = "application/json"
                 else:
                     body = frame["jpeg"] if fresh else b"No fresh frame"
@@ -65,14 +71,18 @@ catch(e){document.getElementById('status').textContent='Preview server disconnec
                 self.wfile.write(body)
             elif self.path == "/stream.mjpg":
                 self.send_response(200)
-                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+                self.send_header(
+                    "Content-Type", "multipart/x-mixed-replace; boundary=frame"
+                )
                 self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 previous = -1
                 try:
                     while not stop.is_set():
                         with condition:
-                            condition.wait_for(lambda: latest["frames"] != previous or stop.is_set(), 1)
+                            condition.wait_for(
+                                lambda: latest["frames"] != previous or stop.is_set(), 1
+                            )
                             frame = latest.copy()
                         if stop.is_set() or time.monotonic() - frame["time"] > 3:
                             break
@@ -80,8 +90,13 @@ catch(e){document.getElementById('status').textContent='Preview server disconnec
                             continue
                         previous = frame["frames"]
                         data = frame["jpeg"]
-                        self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                                         + str(len(data)).encode() + b"\r\n\r\n" + data + b"\r\n")
+                        self.wfile.write(
+                            b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                            + str(len(data)).encode()
+                            + b"\r\n\r\n"
+                            + data
+                            + b"\r\n"
+                        )
                         self.wfile.flush()
                 except (BrokenPipeError, ConnectionResetError):
                     pass
@@ -97,29 +112,44 @@ catch(e){document.getElementById('status').textContent='Preview server disconnec
         with dai.Device(dai.DeviceInfo(args.ip)) as device:
             print("Device:", device.getDeviceName(), flush=True)
             for feature in device.getConnectedCameraFeatures():
-                print("Sensor:", feature.socket, feature.sensorName,
-                      feature.width, feature.height, flush=True)
+                print(
+                    "Sensor:",
+                    feature.socket,
+                    feature.sensorName,
+                    feature.width,
+                    feature.height,
+                    flush=True,
+                )
             with dai.Pipeline(device) as pipeline:
-                camera = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
-                queue = camera.requestOutput((640, 400), type=dai.ImgFrame.Type.BGR888p,
-                                             fps=15).createOutputQueue(maxSize=2, blocking=False)
+                camera = pipeline.create(dai.node.Camera).build(
+                    dai.CameraBoardSocket.CAM_A
+                )
+                queue = camera.requestOutput(
+                    (640, 400), type=dai.ImgFrame.Type.BGR888p, fps=15
+                ).createOutputQueue(maxSize=2, blocking=False)
                 pipeline.start()
                 last_received = time.monotonic()
                 while pipeline.isRunning() and not stop.is_set():
                     message = queue.tryGet()
                     if message is None:
                         if time.monotonic() - last_received > 20:
-                            raise RuntimeError("No camera frames received for 20 seconds")
+                            raise RuntimeError(
+                                "No camera frames received for 20 seconds"
+                            )
                         stop.wait(0.01)
                         continue
                     last_received = time.monotonic()
-                    ok, encoded = cv2.imencode(".jpg", message.getCvFrame(),
-                                               [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    ok, encoded = cv2.imencode(
+                        ".jpg", message.getCvFrame(), [cv2.IMWRITE_JPEG_QUALITY, 80]
+                    )
                     if not ok:
                         raise RuntimeError("JPEG encoding failed")
                     with condition:
-                        latest.update(jpeg=encoded.tobytes(), time=last_received,
-                                      frames=latest["frames"] + 1)
+                        latest.update(
+                            jpeg=encoded.tobytes(),
+                            time=last_received,
+                            frames=latest["frames"] + 1,
+                        )
                         condition.notify_all()
                     if latest["frames"] == 1:
                         print("First color frame received", flush=True)

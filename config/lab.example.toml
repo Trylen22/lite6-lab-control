@@ -1,4 +1,5 @@
-# Planning template only; no application reads this file yet.
+# The launcher/deck read robot.ip and camera.ip from the local copy.
+# Other fields document the installation; validation flags are operator notes, not motion gates.
 # Copy to local/lab.toml. Fill values from lab inspection, not JetMax defaults.
 [host]
 name = ""

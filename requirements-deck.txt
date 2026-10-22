@@ -1,0 +1,3 @@
+# Laptop baseline: Linux x86_64, Python 3.12. Nano compatibility is unverified.
+-r requirements-preview.txt
+xarm-python-sdk==1.18.4

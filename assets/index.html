@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lite 6 · Lab Deck</title>
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script defer src="/assets/app.js"></script>
+  </head>
+  <body>
+    <!-- The shell separates navigation from four small teaching pages. -->
+    <div class="shell">
+      <aside class="sidebar">
+        <a class="brand" href="/"
+          ><span class="brand-mark">L6<span>↗</span></span
+          ><span
+            >Lite 6 <b>Lab Deck</b><small>ROBOTICS · VISION LAB</small></span
+          ></a
+        >
+        <div class="nav-label">YOUR WORKSPACE</div>
+        <nav aria-label="Main navigation">
+          <button class="nav-item active" data-page="workspace">
+            <span>◉</span> Vision workspace <i>01</i>
+          </button>
+          <button class="nav-item" data-page="robot">
+            <span>⌁</span> Robot telemetry <i>02</i>
+          </button>
+          <button class="nav-item" data-page="learn">
+            <span>▤</span> Learning path <i>03</i>
+          </button>
+          <button class="nav-item" data-page="system">
+            <span>⚙</span> System notes <i>04</i>
+          </button>
+        </nav>
+        <div class="sidebar-lesson">
+          <span class="eyebrow">CURRENT CHAPTER</span>
+          <h3>Observe & understand.</h3>
+          <p>
+            Explore the camera, follow the data, and learn how a detection
+            becomes a useful measurement.
+          </p>
+          <button data-go="learn">
+            View the learning path <span>↗</span>
+          </button>
+        </div>
+        <div class="sidebar-bottom">
+          <span class="dot neutral"></span> Observation session
+          <small>Motion API unavailable</small>
+        </div>
+      </aside>
+      <main>
+        <header class="topbar">
+          <div>
+            <span class="crumb">LAB / LITE 6</span><span class="divider">/</span
+            ><span id="breadcrumb">Vision workspace</span>
+          </div>
+          <span class="session-pill"
+            ><span class="dot"></span> PHASE 01 · OBSERVATION</span
+          >
+        </header>
+        <div class="content">
+          <section class="page" id="workspace">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow accent"
+                  >A CLASSROOM FOR MACHINE VISION</span
+                >
+                <h1>Vision workspace<span>.</span></h1>
+                <p>
+                  A live view of the lab, with the steps behind every detection.
+                </p>
+              </div>
+              <div class="heading-note">
+                <span class="tiny-grid">▦</span> UFACTORY Lite 6<br /><small
+                  >+ Luxonis OAK-D Pro PoE</small
+                >
+              </div>
+            </div>
+            <div class="metric-grid">
+              <article class="metric">
+                <span>Camera input <i class="dot" id="camera-dot"></i></span
+                ><strong id="camera-state">Connecting</strong
+                ><small id="camera-detail">Waiting for fresh frames</small>
+              </article>
+              <article class="metric">
+                <span>Robot SDK <i class="dot" id="robot-dot"></i></span
+                ><strong id="robot-state">Connecting</strong
+                ><small>Read-only telemetry</small>
+              </article>
+              <article class="metric">
+                <span>Vision processing</span
+                ><strong id="mode-metric">Color / HSV</strong
+                ><small id="processing-detail">Laptop CPU · OpenCV</small>
+              </article>
+              <article class="metric">
+                <span>Candidates in view</span
+                ><strong id="candidate-count">—</strong
+                ><small>Image-space observations</small>
+              </article>
+            </div>
+            <!-- Camera pixels come from our own loopback server; no cloud embed. -->
+            <div class="workspace-grid">
+              <article class="panel camera-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="eyebrow">01 / LIVE CAMERA</span>
+                    <h2>Look through the lens</h2>
+                  </div>
+                  <span class="chip" id="live-label">CONNECTING</span>
+                </div>
+                <div class="mode-tabs" role="group" aria-label="Vision mode">
+                  <button data-mode="raw">Raw camera</button
+                  ><button class="selected" data-mode="color">
+                    Color detection</button
+                  ><button data-mode="yolo">
+                    YOLO objects <span>CPU</span>
+                  </button>
+                </div>
+                <div class="camera-stage">
+                  <img
+                    id="camera-image"
+                    src="/stream.mjpg"
+                    alt="Live OAK camera feed with selected vision overlay"
+                  />
+                  <div class="camera-caption">
+                    <span id="view-caption">COLOR OVERLAY</span
+                    ><span>640 × 400</span>
+                  </div>
+                  <div id="stale-overlay" hidden>
+                    Waiting for a fresh camera frame…
+                  </div>
+                </div>
+                <div class="camera-toolbar">
+                  <span
+                    ><span class="dot" id="stream-dot"></span>
+                    <b id="fps">—</b> <small>processed FPS</small></span
+                  ><button id="mask-toggle" aria-pressed="false">
+                    ◧ Show threshold mask
+                  </button>
+                </div>
+              </article>
+              <aside class="panel lesson-panel">
+                <span class="eyebrow">FOLLOW THE PIPELINE</span>
+                <h2>From light<br />to a candidate.</h2>
+                <p id="lesson-intro">
+                  Color detection is a sequence of small, inspectable decisions.
+                </p>
+                <ol class="pipeline">
+                  <li>
+                    <span>1</span>
+                    <div>
+                      <h3>Capture a frame</h3>
+                      <p>Read a fresh color image from the OAK camera.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span>2</span>
+                    <div>
+                      <h3 id="step-two-title">Select a color range</h3>
+                      <p id="step-two-body">
+                        Convert BGR to HSV, then keep matching pixels.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <span>3</span>
+                    <div>
+                      <h3 id="step-three-title">Find useful shapes</h3>
+                      <p id="step-three-body">
+                        Clean the mask and reject small or narrow regions.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <span>4</span>
+                    <div>
+                      <h3>Describe the candidate</h3>
+                      <p>Show its bounding box and image measurements.</p>
+                    </div>
+                  </li>
+                </ol>
+                <div class="lesson-callout">
+                  <span>↳</span>
+                  <p>
+                    Measurements are in <b>image pixels</b>. Robot-space
+                    calibration comes in a later lesson.
+                  </p>
+                </div>
+                <button class="text-button" data-go="learn">
+                  Explore the next chapters ↗
+                </button>
+              </aside>
+            </div>
+            <div class="lower-grid">
+              <article class="panel settings-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="eyebrow">02 / EXPERIMENT</span>
+                    <h2>Tune the observation</h2>
+                  </div>
+                  <span class="chip subtle">HOST SETTINGS</span>
+                </div>
+                <div id="color-settings">
+                  <label
+                    >Target color
+                    <select id="preset">
+                      <option value="green">Green / cyan</option>
+                      <option value="red">Red</option>
+                      <option value="blue">Blue</option>
+                      <option value="yellow">Yellow</option>
+                    </select></label
+                  ><label class="slider-label"
+                    >Minimum region area <output id="area-value">800 px²</output
+                    ><input
+                      id="min-area"
+                      type="range"
+                      min="100"
+                      max="10000"
+                      step="100"
+                      value="800"
+                  /></label>
+                  <p class="helper">
+                    Raise the area threshold to reject small speckles. Lighting
+                    and similar-colored objects can still affect the result.
+                  </p>
+                  <div class="code-note" id="hsv-note">
+                    HSV ranges load with the first frame.
+                  </div>
+                </div>
+                <div id="yolo-settings" hidden>
+                  <label class="slider-label"
+                    >Confidence threshold
+                    <output id="confidence-value">40%</output
+                    ><input
+                      id="confidence"
+                      type="range"
+                      min="10"
+                      max="95"
+                      step="5"
+                      value="40"
+                  /></label>
+                  <p class="helper">
+                    YOLOX-Nano · 416 × 416 input · 80 COCO classes. Inference
+                    runs on this laptop using OpenCV DNN.
+                  </p>
+                  <div class="code-note">
+                    General objects only. Lab-specific parts require a suitable
+                    trained model.
+                  </div>
+                </div>
+                <div id="raw-settings" hidden>
+                  <p class="helper">
+                    Raw mode displays the camera image without running a
+                    detector. Use it to compare the scene with processed views.
+                  </p>
+                </div>
+                <p role="status" id="settings-message" class="helper"></p>
+              </article>
+              <article class="panel results-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="eyebrow">03 / INSPECT</span>
+                    <h2>What the detector sees</h2>
+                  </div>
+                  <span id="result-count" class="chip subtle">0 FOUND</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>CANDIDATE</th>
+                        <th>POSITION / BOX</th>
+                        <th>SCORE / AREA</th>
+                      </tr>
+                    </thead>
+                    <tbody id="detections"></tbody>
+                  </table>
+                  <div class="empty-state" id="empty-state">
+                    <span>⌖</span><strong>Make an observation</strong>
+                    <p>
+                      Place a colored object in view, or select YOLO for
+                      everyday object classes.
+                    </p>
+                  </div>
+                </div>
+              </article>
+            </div>
+            <div class="footnote">
+              <span>◇</span> This phase observes and explains. No robot movement
+              or gripper actions are available.
+            </div>
+          </section>
+          <!-- Read-only telemetry: displayed positions are never movement targets. -->
+          <section class="page" id="robot" hidden>
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow accent">MEET THE HARDWARE</span>
+                <h1>Robot telemetry<span>.</span></h1>
+                <p>Live SDK observations, refreshed every three seconds.</p>
+              </div>
+              <span class="chip">READ ONLY</span>
+            </div>
+            <div class="two-columns">
+              <article class="panel">
+                <span class="eyebrow">CONNECTION</span>
+                <h2>UFACTORY Lite 6</h2>
+                <dl id="robot-details" class="detail-list"></dl>
+                <p class="helper">
+                  A network connection and zero error codes do not establish
+                  readiness for motion. Controller state is shown as the raw SDK
+                  code.
+                </p>
+              </article>
+              <article class="panel">
+                <span class="eyebrow">TOOL CENTER POINT</span>
+                <h2>Current reported pose</h2>
+                <div id="pose-grid" class="pose-grid"></div>
+                <p class="helper">
+                  X, Y, Z are reported in millimeters; roll, pitch, yaw are in
+                  degrees. These values describe the current pose and are never
+                  used as a movement target.
+                </p>
+              </article>
+            </div>
+            <article class="panel joint-panel">
+              <span class="eyebrow">JOINT ANGLES</span>
+              <h2>Six axes, observed</h2>
+              <div id="joint-grid" class="joint-grid"></div>
+            </article>
+            <div class="footnote">
+              No enable, home, reset, jog, or tool command exists in this
+              application.
+            </div>
+          </section>
+          <section class="page" id="learn" hidden>
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow accent"
+                  >BUILD UNDERSTANDING, ONE STEP AT A TIME</span
+                >
+                <h1>The learning path<span>.</span></h1>
+                <p>
+                  Each chapter has a clear experiment and a checkpoint before
+                  the next.
+                </p>
+              </div>
+            </div>
+            <div class="roadmap">
+              <article class="panel roadmap-card">
+                <span class="chapter">01</span>
+                <div>
+                  <span class="chip">CURRENT PHASE</span>
+                  <h2>Observe & detect</h2>
+                  <p>
+                    Trace a frame from the OAK camera through OpenCV color
+                    thresholds or local YOLO. Read robot status without sending
+                    movement commands.
+                  </p>
+                  <ul>
+                    <li>Compare raw, threshold mask, and annotated images.</li>
+                    <li>
+                      Explain a centroid, a confidence score, and a false
+                      positive.
+                    </li>
+                    <li>
+                      Verify stale frames never appear as fresh detections.
+                    </li>
+                  </ul>
+                  <code>labdeck/color.py · yolo.py · robot.py</code>
+                </div>
+              </article>
+              <article class="panel roadmap-card">
+                <span class="chapter">02</span>
+                <div>
+                  <span class="chip subtle">PLANNED · NO MOTION</span>
+                  <h2>Measure & calibrate</h2>
+                  <p>
+                    Confirm the camera mounting and tool geometry. Measure
+                    pixel, depth, camera, and robot coordinate frames with known
+                    reference points.
+                  </p>
+                  <ul>
+                    <li>
+                      Record camera intrinsics and the camera-to-robot
+                      transform.
+                    </li>
+                    <li>
+                      Measure error on reference points excluded from
+                      calibration.
+                    </li>
+                    <li>Visualize proposed targets without executing them.</li>
+                  </ul>
+                  <code
+                    >Checkpoint: validated measurements and documented
+                    uncertainty.</code
+                  >
+                </div>
+              </article>
+              <article class="panel roadmap-card">
+                <span class="chapter">03</span>
+                <div>
+                  <span class="chip subtle">FUTURE · REQUIRES OPERATOR</span>
+                  <h2>Teach controlled motion</h2>
+                  <p>
+                    Verify mounting, emergency stop, tool/payload, clear
+                    workspace, speed limits, and explicit operator authorization
+                    before introducing any movement.
+                  </p>
+                  <ul>
+                    <li>Teach this arm's poses and workspace boundaries.</li>
+                    <li>Validate low-speed manual steps and stop behavior.</li>
+                    <li>Keep observations separate from command execution.</li>
+                  </ul>
+                  <code>Checkpoint: supervised motion validation.</code>
+                </div>
+              </article>
+              <article class="panel roadmap-card">
+                <span class="chapter">04</span>
+                <div>
+                  <span class="chip subtle">FUTURE EXPERIMENT</span>
+                  <h2>Pick, place & explain</h2>
+                  <p>
+                    Develop an inspectable state machine: acquire → validate →
+                    approach → pick → transfer → release → verify.
+                  </p>
+                  <ul>
+                    <li>
+                      Reject stale, uncertain, or out-of-workspace targets.
+                    </li>
+                    <li>
+                      Handle lost objects and interrupted cycles explicitly.
+                    </li>
+                    <li>
+                      Log what the system observed and why each action was
+                      selected.
+                    </li>
+                  </ul>
+                  <code
+                    >Checkpoint: repeated supervised trials with measured
+                    outcomes.</code
+                  >
+                </div>
+              </article>
+            </div>
+          </section>
+          <section class="page" id="system" hidden>
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow accent">OPEN THE BOX</span>
+                <h1>How this deck works<span>.</span></h1>
+                <p>
+                  A small local system with a readable boundary between vision
+                  and robotics.
+                </p>
+              </div>
+            </div>
+            <div class="architecture">
+              <div>OAK camera<small>Temporary color pipeline</small></div>
+              <span>→</span>
+              <div>Camera producer<small>Loopback · port 8090</small></div>
+              <span>→</span>
+              <div>Vision worker<small>HSV or YOLOX · CPU</small></div>
+              <span>→</span>
+              <div>This dashboard<small>Loopback · port 8100</small></div>
+            </div>
+            <div class="two-columns">
+              <article class="panel">
+                <span class="eyebrow">SOURCE MAP</span>
+                <h2>Read the system in order</h2>
+                <dl class="detail-list">
+                  <dt>Camera capture</dt>
+                  <dd><code>scripts/camera_preview.py</code></dd>
+                  <dt>Color lesson</dt>
+                  <dd><code>labdeck/color.py</code></dd>
+                  <dt>YOLO lesson</dt>
+                  <dd><code>labdeck/yolo.py</code></dd>
+                  <dt>Robot observation</dt>
+                  <dd><code>labdeck/robot.py</code></dd>
+                  <dt>HTTP + workers</dt>
+                  <dd><code>labdeck/server.py</code></dd>
+                  <dt>Browser interaction</dt>
+                  <dd><code>assets/app.js</code></dd>
+                </dl>
+              </article>
+              <article class="panel">
+                <span class="eyebrow">SESSION BOUNDARIES</span>
+                <h2>What is running here</h2>
+                <p class="body-copy">
+                  Frames and detections are processed locally. The dashboard
+                  serves only this laptop. No automatic recording, cloud
+                  inference, robot movement, or gripper operation is part of
+                  this phase.
+                </p>
+                <p class="body-copy">
+                  Color thresholds describe appearance. YOLO predictions
+                  describe learned classes. Neither output supplies a validated
+                  robot-space pickup location.
+                </p>
+                <p class="body-copy">
+                  The README, architecture guide, and lesson plan explain how to
+                  run, inspect, and extend each part.
+                </p>
+              </article>
+            </div>
+          </section>
+          <footer>
+            <span>LITE 6 LAB DECK</span
+            ><span>Observe. Experiment. Understand.</span
+            ><span>CLASSROOM EDITION / 01</span>
+          </footer>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

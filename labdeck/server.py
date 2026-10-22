@@ -1,0 +1,314 @@
+"""HTTP classroom dashboard with two independent observation workers.
+
+Camera ownership stays in camera_preview.py. This service reads that producer's
+fresh JPEGs over loopback, so we never open the OAK device twice. RobotObserver
+only reads telemetry. Vision results cannot call the robot: there is no motion
+route, dispatcher, or calibration-to-motion conversion in this application.
+"""
+
+import argparse
+import json
+from pathlib import Path
+import signal
+import threading
+import time
+import tomllib
+import urllib.error
+import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit, parse_qs
+
+import cv2
+import numpy as np
+from labdeck.color import PRESETS, detect_color, annotate
+from labdeck.robot import RobotObserver
+from labdeck.yolo import YoloDetector
+
+ROOT = Path(__file__).resolve().parents[1]
+MODEL = ROOT / "local/models/yolox_nano.onnx"
+
+
+class VisionWorkspace:
+    """One worker processes the newest image, without accumulating a frame queue."""
+
+    def __init__(self, camera_url):
+        self.camera_url = camera_url.rstrip("/")
+        self.condition = threading.Condition()
+        self.settings = {
+            "mode": "color",
+            "preset": "green",
+            "min_area": 800,
+            "confidence": 0.4,
+        }
+        self.revision = 0
+        self.sequence = 0
+        self.updated = 0.0
+        self.detections = []
+        self.images = {}
+        self.error = "Waiting for a fresh camera image"
+        self.processing_ms = 0
+        self.fps = 0
+        self.yolo = None
+
+    def configure(self, patch):
+        """Validate a full change before replacing state; invalid requests do nothing."""
+        if not isinstance(patch, dict) or set(patch) - set(self.settings):
+            raise ValueError("Unknown vision setting")
+        with self.condition:
+            new = {**self.settings, **patch}
+            if (
+                new["mode"] not in ("raw", "color", "yolo")
+                or new["preset"] not in PRESETS
+            ):
+                raise ValueError("Choose a supported mode and color preset")
+            if type(new["min_area"]) is not int or not 100 <= new["min_area"] <= 10000:
+                raise ValueError(
+                    "Minimum area must be an integer from 100 to 10000 pixels"
+                )
+            if (
+                type(new["confidence"]) not in (int, float)
+                or not 0.1 <= new["confidence"] <= 0.95
+            ):
+                raise ValueError("Confidence must be between 0.10 and 0.95")
+            if new["mode"] == "yolo" and not MODEL.is_file():
+                raise ValueError("Download the YOLO model before selecting this mode")
+            self.settings = new
+            self.revision += 1
+            # Clear previous results at a mode change. A green box must never be
+            # presented as a neural prediction while the next frame is processing.
+            self.detections = []
+            self.images = {}
+            self.updated = 0
+            self.condition.notify_all()
+
+    def snapshot(self):
+        with self.condition:
+            age = time.monotonic() - self.updated if self.updated else None
+            fresh = age is not None and age < 3 and not self.error
+            return {
+                "fresh": fresh,
+                "age_seconds": round(age, 2) if age is not None else None,
+                "sequence": self.sequence,
+                "settings": self.settings.copy(),
+                "detections": self.detections if fresh else [],
+                "error": self.error,
+                "processing_ms": round(self.processing_ms, 1),
+                "fps": round(self.fps, 1),
+                "model_available": MODEL.is_file(),
+                "resolution": [640, 400],
+                "hsv_ranges": PRESETS[self.settings["preset"]],
+            }
+
+    def run(self, stop):
+        # Skip proxy environment settings: our upstream is always the configured
+        # loopback camera producer, never a third-party video service.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        previous = time.monotonic()
+        while not stop.is_set():
+            with self.condition:
+                settings, revision = self.settings.copy(), self.revision
+            try:
+                with opener.open(
+                    self.camera_url + "/snapshot.jpg", timeout=2
+                ) as response:
+                    raw = response.read(2_000_000)
+                image = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+                if image is None:
+                    raise ValueError("Camera producer returned an invalid image")
+                started = time.monotonic()
+                mask = None
+                detections = []
+                if settings["mode"] == "color":
+                    detections, mask = detect_color(
+                        image, settings["preset"], settings["min_area"]
+                    )
+                elif settings["mode"] == "yolo":
+                    if self.yolo is None:
+                        self.yolo = YoloDetector(MODEL)
+                    detections = self.yolo.detect(image, settings["confidence"])
+                rendered = (
+                    annotate(image, detections) if settings["mode"] != "raw" else image
+                )
+                _, encoded = cv2.imencode(
+                    ".jpg", rendered, [cv2.IMWRITE_JPEG_QUALITY, 85]
+                )
+                images = {"annotated": encoded.tobytes(), "raw": raw}
+                if mask is not None:
+                    _, encoded_mask = cv2.imencode(".jpg", mask)
+                    images["mask"] = encoded_mask.tobytes()
+                now = time.monotonic()
+                with self.condition:
+                    if revision == self.revision:
+                        self.images = images
+                        self.detections = detections
+                        self.sequence += 1
+                        self.updated = now
+                        self.error = ""
+                        self.processing_ms = (now - started) * 1000
+                        self.fps = 1 / max(0.001, now - previous)
+                        self.condition.notify_all()
+                previous = now
+            except Exception as exc:
+                with self.condition:
+                    self.error = str(exc)
+                    self.images = {}
+                    self.detections = []
+                    self.condition.notify_all()
+                stop.wait(0.7)
+            # A modest rate leaves CPU headroom for telemetry and teaching tools.
+            stop.wait(0.10)
+
+
+def make_handler(vision, robot, stop):
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_):
+            pass
+
+        def send_body(self, code, data, content_type="application/json"):
+            self.send_response(code)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(data)
+
+        def send_json(self, code, value):
+            self.send_body(code, json.dumps(value, allow_nan=False).encode())
+
+        def do_GET(self):
+            path = urlsplit(self.path).path
+            assets = {
+                "/": ("index.html", "text/html; charset=utf-8"),
+                "/assets/style.css": ("style.css", "text/css"),
+                "/assets/app.js": ("app.js", "text/javascript"),
+            }
+            if path in assets:
+                filename, content_type = assets[path]
+                self.send_body(
+                    200, (ROOT / "assets" / filename).read_bytes(), content_type
+                )
+            elif path == "/api/status":
+                self.send_json(
+                    200,
+                    {
+                        "vision": vision.snapshot(),
+                        "robot": robot.snapshot(),
+                        "motion_available": False,
+                        "phase": "Observation and vision",
+                    },
+                )
+            elif path == "/stream.mjpg":
+                view = parse_qs(urlsplit(self.path).query).get("view", ["annotated"])[0]
+                if view not in ("annotated", "raw", "mask"):
+                    self.send_json(400, {"error": "Unknown view"})
+                    return
+                self.send_response(200)
+                self.send_header(
+                    "Content-Type", "multipart/x-mixed-replace; boundary=frame"
+                )
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                sequence = -1
+                try:
+                    while not stop.is_set():
+                        with vision.condition:
+                            vision.condition.wait_for(
+                                lambda: vision.sequence != sequence or stop.is_set(),
+                                timeout=1,
+                            )
+                            current = vision.sequence
+                            jpeg = vision.images.get(view)
+                            fresh = (
+                                vision.updated and time.monotonic() - vision.updated < 3
+                            )
+                        if stop.is_set():
+                            break
+                        if not fresh or jpeg is None or current == sequence:
+                            # Keep the connection open during a brief mode change.
+                            stop.wait(0.1)
+                            continue
+                        sequence = current
+                        self.wfile.write(
+                            b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                            + str(len(jpeg)).encode()
+                            + b"\r\n\r\n"
+                            + jpeg
+                            + b"\r\n"
+                        )
+                        self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+            else:
+                self.send_json(404, {"error": "Unknown endpoint"})
+
+        def do_POST(self):
+            # This is the only write endpoint. It changes HOST vision settings.
+            # There are deliberately no robot command routes, even hidden ones.
+            if self.path != "/api/vision":
+                self.send_json(
+                    404, {"error": "No such action; robot commands are unavailable"}
+                )
+                return
+            origin = self.headers.get("Origin")
+            if origin and origin != "http://" + self.headers.get("Host", ""):
+                self.send_json(403, {"error": "Same-origin requests required"})
+                return
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                if not 0 < size <= 2048:
+                    raise ValueError("Expected a small JSON settings object")
+                if self.headers.get_content_type() != "application/json":
+                    raise ValueError("Content-Type must be application/json")
+                patch = json.loads(self.rfile.read(size))
+                vision.configure(patch)
+                self.send_json(200, vision.snapshot())
+            except (ValueError, TypeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+
+    return Handler
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=ROOT / "local/lab.toml")
+    parser.add_argument("--port", type=int, default=8100)
+    args = parser.parse_args()
+    config = tomllib.loads(args.config.read_text())
+    robot_ip = config["robot"]["ip"]
+    if not robot_ip:
+        parser.error("Record the confirmed robot IP in local/lab.toml first")
+    # The upstream is loopback-only by design, so input from a settings request
+    # cannot redirect the server into another lab device or a public service.
+    vision = VisionWorkspace("http://127.0.0.1:8090")
+    robot = RobotObserver(robot_ip)
+    stop = threading.Event()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, lambda *_: stop.set())
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", args.port), make_handler(vision, robot, stop)
+    )
+    workers = [
+        threading.Thread(target=vision.run, args=(stop,), daemon=True),
+        threading.Thread(target=robot.run, args=(stop,), daemon=True),
+        threading.Thread(target=server.serve_forever, daemon=True),
+    ]
+    for worker in workers:
+        worker.start()
+    print(
+        f"Lite 6 Lab Deck: http://127.0.0.1:{args.port}/ — observation only", flush=True
+    )
+    try:
+        stop.wait()
+    finally:
+        stop.set()
+        with vision.condition:
+            vision.condition.notify_all()
+        server.shutdown()
+        server.server_close()
+        for worker in workers:
+            worker.join(timeout=4)
+
+
+if __name__ == "__main__":
+    main()

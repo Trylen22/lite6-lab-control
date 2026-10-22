@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """List devices via DepthAI discovery; do not open a device or start a pipeline."""
+
 import depthai as dai
 
 

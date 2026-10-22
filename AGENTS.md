@@ -15,3 +15,7 @@ Do not reuse JetMax coordinates, calibration, or motion code as Lite 6 defaults.
 Keep actual machine configuration and credentials under ignored `local/` or outside the repository. Commit sanitized examples. Do not embed secrets in scripts or remote URLs. Review staged content before pushing. Keep this repo private unless the user requests otherwise.
 
 Pin dependencies after confirming host and device compatibility. Record changes, checks, and remaining physical validation in docs/STATUS.md. Push completed work to this project's GitHub remote as requested by the user; never claim a push succeeded without checking it.
+
+## Classroom purpose
+
+The user requires this repo to be heavily commented, educational, and clean. Explain units, coordinate frames, preprocessing assumptions, SDK return codes, concurrency boundaries, and failure handling near the relevant code. Keep modules focused, format browser assets for reading, and maintain exercises, architecture, and an incremental roadmap in docs/. Never describe pixel detections as calibrated pickup targets. Current user instruction: no robot motion; build UI and explore SDK/vision only.

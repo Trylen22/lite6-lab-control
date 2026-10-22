@@ -1,52 +1,103 @@
-# Lite 6 Lab Control
+# Lite 6 Lab Deck
 
-Separate workspace for a UFACTORY Lite 6 (label model LI10) and Luxonis OAK-D Pro PoE camera. This project is independent of `../JETMAX` and `Trylen22/jetmax-control`.
+A classroom-friendly vision and robotics workspace for the **UFACTORY Lite 6** and **Luxonis OAK-D Pro PoE**. Built independently of the JetMax project, with readable Python modules and a local browser interface.
 
-## Current status
+**Current phase: observation and vision. No robot movement, enabling, reset, or gripper commands are implemented.**
 
-Repository and local configuration structure are ready. No lab device has been connected, configured, calibrated, or moved by this project. Device addresses, host computer, tool, and installed software versions are not yet confirmed.
+## What works now
 
-## Start here
+- Local dashboard at **http://127.0.0.1:8100/** with vision workspace, robot telemetry, learning path, and system notes.
+- Live color camera; raw, annotated, and HSV mask views.
+- OpenCV color detection with green/cyan, red, blue, and yellow presets and an adjustable minimum region area.
+- **YOLOX-Nano** on the laptop CPU through OpenCV DNN. This is a small pretrained YOLO-family model, not a model currently running on the camera. Its 80 COCO classes cover everyday objects, not custom lab parts.
+- Read-only UFACTORY SDK telemetry: firmware, controller state code, errors/warnings, tool pose, and six joint angles.
+- Explicit freshness indicators: a lost camera or robot connection is reported rather than treated as a valid observation.
 
-1. Read [lab setup](docs/LAB_SETUP.md) and record observations in `local/inventory.md`.
-2. Run `./scripts/host_inventory.sh` on the computer intended to host control software. This reports local system information only; it does not contact the robot or camera.
-3. Copy `config/lab.example.toml` to `local/lab.toml` and fill in confirmed values. The configuration is a planning template; no application consumes it yet.
-4. Identify the correct SDK versions for that host before installing dependencies. In particular, the spare original Nano and JetMax may have older operating systems and Python versions.
-5. Develop arm status access and camera viewing before adding motion controls.
+All detection coordinates are **image pixels**. There is no camera-to-robot calibration or automatic picking yet.
 
-## Layout
+## Quick start on the laptop
 
-- `config/`: examples with no real addresses or credentials.
-- `docs/`: setup, decisions, verification records, and handoff notes.
-- `scripts/`: reviewed utilities; currently local host inventory only.
-- `local/`: ignored machine configuration, lab inventory, and diagnostic output.
-- `data/`: ignored captures and calibration data; validated, non-sensitive calibration may be added deliberately later.
-
-## Git workflow
-
-Use this repository for all Lite 6/OAK work. Keep JetMax changes in its own repository. Review `git diff` and staged files, commit a coherent change, and push after each completed milestone. Never commit passwords, SSH private keys, access tokens, camera recordings, or unreviewed device logs. Record validation honestly: offline checks do not establish physical operation.
-
-See [project status](docs/STATUS.md) for the next session.
-
-## Camera discovery (development laptop)
+Validated baseline: **Linux x86_64, Python 3.12**. The original Jetson Nano has not been validated with these dependencies.
 
 ```bash
+cd /path/to/LITE6
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-discovery.txt
-.venv/bin/python scripts/discover_camera.py
+.venv/bin/python -m pip install -r requirements-deck.txt
+mkdir -p local
+cp --no-clobber config/lab.example.toml local/lab.toml
 ```
 
-This enumerates devices without opening a camera or starting a stream. No discovery result does not establish absence: power, subnet, cabling, firewall, and device state can affect discovery. These dependency versions were tested on the laptop, not on either Nano.
-
-## Local live color preview
+Edit `local/lab.toml` with the **confirmed** robot and camera addresses. Do not overwrite existing local configuration. Actual device addresses and credentials stay out of Git.
 
 ```bash
-.venv/bin/python -m pip install -r requirements-preview.txt
-.venv/bin/python scripts/camera_preview.py --ip <confirmed-camera-address>
+# Download the official 3.5 MB YOLOX-Nano ONNX release and check its hash.
+.venv/bin/python scripts/download_yolo.py
+
+# Launch the camera producer if needed, then the dashboard.
+./run.sh
 ```
 
-Open `http://127.0.0.1:8090/` on this laptop. The preview requests CAM_A color at 640 x 400 and 15 FPS, with a small nonblocking queue. `/health` reports frame freshness; `/snapshot.jpg` returns a current JPEG; `/stream.mjpg` provides MJPEG. The server binds only to localhost, so other lab computers cannot access it directly. It does not continuously record images. Stop the foreground command with Ctrl+C. Do not launch a second instance while one is running.
+Open **http://127.0.0.1:8100/** in a browser on this laptop. Stop the launcher with **Ctrl+C**. Settings return to defaults on a new deck process; changing a UI vision setting never changes robot settings.
 
-This starts a temporary camera pipeline. It does not flash firmware, persist camera network settings, operate the IR emitters, or control the arm. The SDK may report optional bootloader updates; this utility does not perform them. Capture failure stops the process instead of automatically rebooting/reconnecting the device.
+The launcher reuses an existing camera producer on port 8090. It stops only child processes it started. To run the parts separately:
 
-Verified on the laptop with OAK-D-PRO-POE and its OV9782 color sensor. The original Nano has not been validated. Based on the [official DepthAI camera output example](https://docs.luxonis.com/software-v3/depthai/examples/camera/camera_output).
+```bash
+# Terminal 1: only one process should own the camera.
+.venv/bin/python scripts/camera_preview.py --ip <confirmed-camera-IP>
+
+# Terminal 2: consumes fresh JPEGs from Terminal 1 and reads arm telemetry.
+.venv/bin/python -m labdeck.server
+```
+
+If the deck is already running, open its URL rather than launching a second copy. Loopback binding means it is accessible only from the host laptop; network sharing/remote access is a later setup step.
+
+## Start reading here
+
+| File | What students learn |
+|---|---|
+| [Classroom guide](docs/CLASSROOM_GUIDE.md) | Guided exercises and questions |
+| [Architecture](docs/ARCHITECTURE.md) | Data flow, processes, units, failure handling |
+| [Roadmap](docs/ROADMAP.md) | Staged plan through calibration and pick-and-place |
+| [Lab setup](docs/LAB_SETUP.md) | Network and hardware preparation |
+| [Current status](docs/STATUS.md) | Verified behavior and remaining limits |
+| [Session history](docs/SESSION_LOG.md) | How we reached the current setup |
+
+## Source map
+
+```text
+assets/                     Browser HTML, readable CSS, and commented JavaScript
+labdeck/
+  color.py                  HSV → mask → contours → pixel candidates
+  yolo.py                   CPU model preprocessing, inference, and box decoding
+  robot.py                  Small read-only boundary around the UFACTORY SDK
+  server.py                 HTTP endpoints and independent observation workers
+scripts/
+  camera_preview.py         Owns the OAK pipeline; serves fresh local frames
+  discover_camera.py        Enumerates OAK devices without starting a stream
+  download_yolo.py          Explicit model download with a pinned checksum
+  host_inventory.sh         Read-only inspection of the local host
+  run_lab.py                Starts/reuses processes and handles shutdown
+config/lab.example.toml      Sanitized device configuration template
+tests/                      Offline vision geometry and observation-boundary checks
+local/                      Ignored actual configuration, model, and diagnostics
+```
+
+## Checks
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+node --check assets/app.js
+# Optional formatter/linter (install requirements-dev.txt first):
+.venv/bin/ruff check labdeck scripts tests
+.venv/bin/ruff format --check labdeck scripts tests
+bash -n run.sh
+.venv/bin/python -m pip check
+```
+
+Offline tests cover colored regions/noise, red hue wraparound, pixel-coordinate geometry, YOLO duplicate suppression, invalid settings, stale results, and the robot getter-only boundary. Hardware validation is recorded separately; passing an offline test does not establish physical readiness.
+
+## Keeping the project clean
+
+Use this repo for Lite 6/OAK work and the separate JetMax repo for JetMax work. Keep machine addresses, credentials, model weights, images, recordings, and logs under ignored `local/`, `data/`, or another ignored directory. Commit source, sanitized examples, explanatory notes, and validation results after each coherent milestone, then push to this project's private remote.
+
+The model is downloaded explicitly rather than committed or fetched silently at startup. See [third-party references](docs/THIRD_PARTY.md) for provenance and licenses.
