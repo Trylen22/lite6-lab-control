@@ -64,3 +64,9 @@ The operator reported an audible pump, an earlier lifted cup edge, and manual re
 Outputs confirmed suction on; every sampled default vacuum state was 0 (no pickup feedback), with all three tool inputs also 0. After release, outputs were all low and vacuum state -1 (off). Pose remained stationary. This demonstrates command/output operation, not a successful seal. No lift or additional downward pressure was attempted. Operator again requested a pickup; first resolve cup seating/surface seal and record the new geometry.
 
 Added the commented diagnostic utility and two offline checks covering pulse cleanup without motion and refusal after a changed pose. Diagnostic records remain ignored locally.
+
+## Second explicit pickup request — new contact, same attachment timeout
+
+The operator reported a fully sealed cup and explicitly requested suction/lift. Captured a fresh stationary contact and defined a new 2 mm base-frame +Z target with exactly unchanged X/Y/orientation; old coordinates were not reused. Preflight again passed with unchanged controller settings.
+
+The suction command returned SDK code 41 (attachment timeout), so the guard sent no lift. Cleanup released the tool at contact. Read-only verification confirmed unchanged pose, zero errors/warnings, all tool outputs low, and vacuum state off. Physical seal versus feedback-sensor/wiring behavior remains unresolved; the sensor timeout alone does not establish which is wrong. Further blind retries were stopped.
