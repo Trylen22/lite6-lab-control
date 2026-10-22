@@ -103,18 +103,24 @@ Use this repo for Lite 6/OAK work and the separate JetMax repo for JetMax work. 
 
 The model is downloaded explicitly rather than committed or fetched silently at startup. See [third-party references](docs/THIRD_PARTY.md) for provenance and licenses.
 
-## Separate supervised taught trial
+## Separate supervised taught trials
 
-`scripts/taught_pick_trial.py` is separate from the classroom dashboard. It accepts explicit local approach/contact records and defaults to getter-only preflight. It permits at most a 2.1 mm vertical lift at 2 mm/s, requires the current pose and controller offsets/load to match the taught setup, requires an empty command queue and an already enabled/idle controller, and never enables, changes mode, or clears faults.
+`scripts/taught_pick_trial.py` is separate from the classroom dashboard and defaults to getter-only preflight. It uses explicit local contact/clearance records, checks current pose, TCP/base offsets and configured load, and requires an empty command queue and an already enabled/idle controller. It never enables, changes mode, or clears faults.
 
-Only an explicit `--execute` runs one cycle: suction with attachment feedback → taught lift → monitored two-second hold → lower to contact → release and end the release pulse. No attachment feedback means no lift. A motion/feedback failure away from confirmed contact preserves the tool state for the operator; it does not automatically descend or release. Use the physical emergency stop for an emergency; closing the terminal/disconnecting the SDK is not a certified stop.
+Profiles require an explicit `--execute` and a concrete operator request:
 
-This script exists for the user's specifically authorized supervised trial. Do not execute it as a classroom example or reuse old coordinates. The actual local records, preflight inspection, operator presence, tool configuration, clear taught path, and unchanged block placement are prerequisites. Read the source and trial notes before use.
+- Default: a taught vertical lift up to 2.1 mm, monitored two-second hold, lower to contact, release.
+- `--release-at-hover`: the explicitly requested small drop, releasing at that <=2.1 mm hover without returning to compressed contact.
+- `--pickup-10mm`: start at the verified 2 mm clearance, return to verified contact, confirm suction, lift 10 mm at 2 mm/s, hold, lower to 2 mm clearance, release. It cannot be combined with release-at-hover.
+
+No pickup feedback means no lift. A motion/feedback failure away from confirmed contact preserves the current tool state for operator recovery; there is no automatic descent or blind release. Use the physical emergency stop for an emergency; closing a terminal is not a certified stop. Do not execute these as generic classroom examples or reuse old coordinates.
+
+**Release correction:** the manufacturer's OFF/release command leaves DO0 low and DO1 high. Earlier trial code incorrectly cleared the release output after 0.3 seconds, an unvalidated assumption removed after an operator report of incomplete shutoff. Current scripts leave release asserted and require the expected output readback plus pickup input low before recording I/O release confirmation. Command acknowledgement alone is not physical release confirmation.
 
 ## Stationary suction diagnosis
 
-`scripts/check_suction.py` inspects tool state by default. Its explicit `--pulse --pose-record <fresh-inspection.json>` option applies one two-second suction pulse at the inspected stationary pose, logs the vacuum state and all available tool inputs, then attempts release and returns the release output low. It has no arm-movement call. A changed pose, active controller, nonzero outputs, or queued commands refuses the pulse.
+`scripts/check_suction.py` inspects tool state by default. Its explicit `--pulse --pose-record <fresh-inspection.json>` option applies one two-second suction pulse at the inspected stationary pose and logs default vacuum state plus all available tool inputs. It has no arm-movement call. It leaves the manufacturer's OFF/release state asserted afterward and checks output/input readback.
 
-The SDK vacuum state means `-1 = tool off`, `0 = no pickup feedback`, and `1 = pickup feedback`. A successful output command or audible motor is not pickup confirmation. A missing seal is investigated at rest; it does not justify bypassing the attachment gate or descending to guessed coordinates. Any manual repositioning invalidates the previous taught path until new geometry is recorded.
+SDK vacuum state: `-1 = tool off`, `0 = no pickup feedback`, `1 = pickup feedback`. An audible pump is not seal confirmation. Changing the pose invalidates an old taught path. The stopped/started state of the pump and physical object clearance still require operator observation; sensor readback does not measure cup compliance.
 
-The trial's explicit `--release-at-hover` variant performs the operator-requested small drop: after the bounded <=2.1 mm lift and monitored hold, it releases at that hover without descending into a compressed contact pose. This variant was introduced after the operator's firmer seating produced confirmed suction feedback. Default behavior still lowers to supported contact before release. The arm's reported lift and pickup feedback do not independently measure whether cup compliance absorbed travel or the object fully cleared the table; operator observation is recorded separately.
+See [JetMax comparison and the next vision step](docs/JETMAX_TO_LITE6.md).

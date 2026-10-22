@@ -27,16 +27,18 @@ class FakeArm:
         return 0, self.pose.copy()
 
     def get_vacuum_gripper(self):
-        return 0, 1 if self.on and self.seal else 0
+        return 0, (1 if self.seal else 0) if self.on else -1
+
+    def get_tool_digital_input(self):
+        return 0, [int(self.on and self.seal), 0, 0]
+
+    def get_tgpio_output_digital(self):
+        return 0, [int(self.on), int(not self.on), 0, 0, 0]
 
     def set_vacuum_gripper(self, on, **kwargs):
         self.calls.append(("vacuum", on))
         self.on = on
         return 0 if self.seal or not on else 41
-
-    def set_tgpio_digital(self, pin, value, **kwargs):
-        self.calls.append(("output", pin, value))
-        return 0
 
     def set_position(self, *pose, **kwargs):
         self.calls.append(("move", list(pose)))
@@ -64,7 +66,6 @@ class TaughtCycle(unittest.TestCase):
                 ("move", HIGH),
                 ("move", LOW),
                 ("vacuum", False),
-                ("output", 1, 0),
             ],
         )
         self.assertFalse(arm.on)
@@ -78,9 +79,57 @@ class TaughtCycle(unittest.TestCase):
             )
         self.assertEqual(
             arm.calls,
-            [("vacuum", True), ("move", HIGH), ("vacuum", False), ("output", 1, 0)],
+            [("vacuum", True), ("move", HIGH), ("vacuum", False)],
         )
         self.assertEqual(arm.pose, HIGH)
+        self.assertFalse(arm.on)
+
+    def test_pickup10_uses_known_contact_and_low_release_clearance(self):
+        arm = FakeArm()
+        arm.pose = HIGH.copy()  # Start at the earlier verified 2 mm hover.
+        lift = LOW.copy()
+        lift[2] += 10
+        with contextlib.redirect_stdout(io.StringIO()):
+            perform_cycle(
+                arm,
+                LOW,
+                lift,
+                [],
+                sleep=lambda _: None,
+                start_pose=HIGH,
+                release_pose=HIGH,
+            )
+        self.assertEqual(
+            arm.calls,
+            [
+                ("move", LOW),
+                ("vacuum", True),
+                ("move", lift),
+                ("move", HIGH),
+                ("vacuum", False),
+            ],
+        )
+        self.assertEqual(arm.pose, HIGH)
+        self.assertFalse(arm.on)
+
+    def test_pickup10_failed_seal_never_moves_above_contact(self):
+        arm = FakeArm(seal=False)
+        arm.pose = HIGH.copy()
+        lift = LOW.copy()
+        lift[2] += 10
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(RuntimeError):
+            perform_cycle(
+                arm,
+                LOW,
+                lift,
+                [],
+                sleep=lambda _: None,
+                start_pose=HIGH,
+                release_pose=HIGH,
+            )
+        self.assertEqual(
+            [call for call in arm.calls if call[0] == "move"], [("move", LOW)]
+        )
         self.assertFalse(arm.on)
 
     def test_no_attachment_means_no_lift_and_contact_cleanup(self):
@@ -97,6 +146,18 @@ class TaughtCycle(unittest.TestCase):
         self.assertTrue(arm.on)
         self.assertEqual(sum(call[0] == "move" for call in arm.calls), 1)
         self.assertNotIn(("vacuum", False), arm.calls)
+
+    def test_release_feedback_failure_never_reports_cycle_complete(self):
+        arm = FakeArm()
+        arm.get_tool_digital_input = lambda: (0, [1, 0, 0])
+        events = []
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(RuntimeError):
+            perform_cycle(
+                arm, LOW, HIGH, events, sleep=lambda _: None, release_at_hover=True
+            )
+        self.assertFalse(arm.on)
+        self.assertNotIn("cycle_complete_at_hover", [e["event"] for e in events])
+        self.assertEqual(arm.get_tgpio_output_digital()[1], [0, 1, 0, 0, 0])
 
     def test_geometry_rejects_long_or_sideways_motion(self):
         contact = {"pose_mm_degrees": LOW, "contact_observed_by_operator": True}

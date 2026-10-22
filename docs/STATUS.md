@@ -2,6 +2,10 @@
 
 Updated 2026-10-22. Historical connection attempts are preserved in [session history](SESSION_LOG.md).
 
+## Current release handling
+
+After the 10 mm trial, the operator reported the vacuum did not shut off. The manufacturer OFF/release command was resent and left asserted: outputs read [0,1,0,0,0], pickup inputs zero, SDK vacuum off. The prior extra 0.3-second release-output reset was removed from both scripts. Physical pump/release confirmation was requested; the subsequent "okay" did not explicitly describe the pump or block. Do not infer physical release solely from the SDK off state. No further motion was sent after that report.
+
 ## Running now
 
 - **Lab Deck:** http://127.0.0.1:8100/ (local laptop only).
@@ -80,3 +84,11 @@ Captured that verified pose, defined an exactly 2 mm base-Z upward target with u
 A separate read-only postcheck confirmed the reached hover pose, idle controller, zero error/warning codes, all outputs low, and vacuum off. Physical object clearance/drop was not independently measured by the software; cup compliance may absorb some motion, so operator observation remains important. No vision-to-robot calibration is claimed.
 
 The default supported-contact release behavior is unchanged. Added an offline check for the explicit small-drop variant; existing no-seal and fault behavior checks remain. Trial records/coordinates are retained only locally.
+
+## Ten-millimeter trial and release correction
+
+At the operator's explicit request for more lift, added and offline-tested the fixed pickup10 profile. Its live preflight passed. The controller executed verified clearance → known contact → confirmed suction → 10 mm lift → monitored two-second hold → low release clearance. The operator then reported incomplete vacuum shutoff; completion of the motion sequence did not establish physical release.
+
+Immediately issued the manufacturer OFF/release command without arm movement and left it asserted. Readback: DO0=0, DO1=1, all pickup inputs zero, SDK vacuum -1, no errors. Removed the unvalidated extra low-level reset of DO1 from the trial and diagnostic. Added release output/pickup-input verification and a regression test that rejects completion when release feedback stays asserted. All 18 offline tests and lint pass. No corrected motion trial has been run.
+
+Staged the next fixed-height vision calibration/centering plan in JETMAX_TO_LITE6.md. Camera-to-cup mapping and automatic pickup retries are still not implemented or calibrated.

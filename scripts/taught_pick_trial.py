@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One operator-taught 2 mm suction trial. Default: read-only preflight.
+"""Bounded operator-taught suction trials. Default: read-only preflight.
 
 This is NOT vision-guided picking. Contact/approach records came from the
 operator's manual teaching at one unchanged block position. No Cartesian
@@ -52,19 +52,32 @@ def read_value(result, operation):
     return value
 
 
-def perform_cycle(arm, low, high, record, sleep=time.sleep, release_at_hover=False):
+def perform_cycle(
+    arm,
+    low,
+    high,
+    record,
+    sleep=time.sleep,
+    release_at_hover=False,
+    start_pose=None,
+    release_pose=None,
+):
     """Execute on an already checked arm; fake-arm tests exercise failure paths.
 
     Optional release_at_hover implements the operator-requested small drop: it
     releases only after reaching the bounded <=2.1 mm hover and completing the
     monitored hold. It never descends into a compressed contact pose.
 
-    Suction feedback must indicate attachment before any movement. On failure,
+    The explicit pickup10 profile starts at the verified 2 mm clearance,
+    returns to the already verified contact, lifts 10 mm, and releases only
+    after lowering to that clearance. These are fixed vertical waypoints.
+
+    Suction feedback must indicate attachment before any lifting. On failure,
     suction is released ONLY when we know we are at the taught supported contact.
     If a movement/feedback check fails away from contact, preserve the tool state
     and require operator recovery instead of blindly descending or dropping.
     """
-    at_contact = True
+    at_contact = start_pose is None
     suction_started = False
 
     def event(name, **details):
@@ -93,12 +106,30 @@ def perform_cycle(arm, low, high, record, sleep=time.sleep, release_at_hover=Fal
             )
         return pose
 
+    def release_tool(operation):
+        # The manufacturer's OFF state is DO0=0, DO1=1. Leave release asserted.
+        # Clearing DO1 to zero was an unvalidated assumption and was removed
+        # after the operator reported incomplete shutoff. Verify I/O, not sound.
+        require_zero(arm.set_vacuum_gripper(False, wait=False, sync=False), operation)
+        for _ in range(20):
+            sleep(0.1)
+            outputs = read_value(
+                arm.get_tgpio_output_digital(), "release output readback"
+            )
+            inputs = read_value(arm.get_tool_digital_input(), "release pickup input")
+            if outputs == [0, 1, 0, 0, 0] and inputs[0] == 0:
+                event("release_io_verified", outputs=outputs, inputs=inputs)
+                return
+        raise RuntimeError(
+            "Release I/O not confirmed; no completion claim or further movement"
+        )
+
     def move(target, name):
         healthy()
         event(name, target=target, speed_mm_s=2, acceleration_mm_s2=5)
         require_zero(
             arm.set_position(
-                *target, speed=2, mvacc=5, is_radian=False, wait=True, timeout=5
+                *target, speed=2, mvacc=5, is_radian=False, wait=True, timeout=10
             ),
             name,
         )
@@ -107,7 +138,12 @@ def perform_cycle(arm, low, high, record, sleep=time.sleep, release_at_hover=Fal
 
     try:
         healthy()
-        confirm_pose(low)
+        confirm_pose(start_pose if start_pose is not None else low)
+        if start_pose is not None:
+            # Return only along the previously demonstrated 2 mm vertical path.
+            # No suction is active during this positioning step.
+            move(low, "return_to_verified_contact")
+            at_contact = True
         suction_started = True  # A partially successful I/O command also needs cleanup.
         event("suction_on")
         require_zero(
@@ -133,7 +169,12 @@ def perform_cycle(arm, low, high, record, sleep=time.sleep, release_at_hover=Fal
                 raise RuntimeError(
                     "Attachment feedback lost during hold; operator recovery required"
                 )
-        if release_at_hover:
+        if release_pose is not None:
+            move(release_pose, "lower_to_verified_release_clearance")
+            event(
+                "release_at_verified_clearance", clearance_mm=release_pose[2] - low[2]
+            )
+        elif release_at_hover:
             healthy()
             confirm_pose(high)
             event(
@@ -144,17 +185,11 @@ def perform_cycle(arm, low, high, record, sleep=time.sleep, release_at_hover=Fal
             move(low, "lower_to_taught_contact")
             at_contact = True
             event("release_at_supported_contact")
-        require_zero(
-            arm.set_vacuum_gripper(False, wait=False, sync=False), "release suction"
-        )
-        sleep(0.3)
-        # SDK off sets DO1 high for release/blow-off. End that pulse so the tool
-        # returns to its observed all-low starting outputs, without moving away.
-        require_zero(arm.set_tgpio_digital(1, 0, sync=False), "end release pulse")
+        release_tool("release suction")
         suction_started = False
         event(
             "cycle_complete_at_hover"
-            if release_at_hover
+            if release_at_hover or release_pose is not None
             else "cycle_complete_at_contact"
         )
     except Exception:
@@ -164,14 +199,7 @@ def perform_cycle(arm, low, high, record, sleep=time.sleep, release_at_hover=Fal
             try:
                 healthy()
                 confirm_pose(low)
-                require_zero(
-                    arm.set_vacuum_gripper(False, wait=False, sync=False),
-                    "contact cleanup release",
-                )
-                sleep(0.3)
-                require_zero(
-                    arm.set_tgpio_digital(1, 0, sync=False), "contact cleanup end pulse"
-                )
+                release_tool("contact cleanup release")
                 event("aborted_at_contact_tool_released")
             except Exception as cleanup_error:
                 event(
@@ -196,10 +224,26 @@ def main():
         action="store_true",
         help="Explicit small-drop variant: release at <=2.1 mm hover, without descending",
     )
+    parser.add_argument(
+        "--pickup-10mm",
+        action="store_true",
+        help="Explicit profile: start at 2 mm clearance, contact, lift 10 mm, hold, return to clearance, release",
+    )
     args = parser.parse_args()
+    if args.pickup_10mm and args.release_at_hover:
+        parser.error("pickup-10mm releases at the low clearance, not at the 10 mm lift")
     contact = json.loads(args.contact.read_text())
     approach = json.loads(args.approach.read_text())
     low, high = validate_geometry(contact, approach)
+    start_pose = None
+    release_pose = None
+    if args.pickup_10mm:
+        if abs(high[2] - low[2] - 2) > 0.05:
+            parser.error("pickup-10mm requires the verified 2 mm clearance record")
+        start_pose = high.copy()
+        release_pose = high.copy()
+        high = low.copy()
+        high[2] += 10.0
     age = (
         datetime.now(timezone.utc) - datetime.fromisoformat(contact["captured_utc"])
     ).total_seconds()
@@ -222,6 +266,7 @@ def main():
     outcome = {
         "executed": args.execute,
         "release_at_hover": args.release_at_hover,
+        "pickup_10mm": args.pickup_10mm,
         "contact_file": args.contact.name,
         "approach_file": args.approach.name,
         "events": events,
@@ -254,21 +299,32 @@ def main():
         if read_value(arm.get_cmdnum(), "read queue depth") != 0:
             raise RuntimeError("Other commands queued; refusing to compete with Studio")
         pose = read_value(arm.get_position(), "preflight pose")
-        if any(abs(pose[i] - low[i]) > 0.25 for i in range(6)):
-            raise RuntimeError("Arm has moved away from the taught light contact")
+        expected_start = start_pose if start_pose is not None else low
+        if any(abs(pose[i] - expected_start[i]) > 0.25 for i in range(6)):
+            raise RuntimeError("Arm has moved away from the verified starting pose")
         outputs = read_value(arm.get_tgpio_output_digital(), "read tool outputs")
-        if any(outputs):
-            raise RuntimeError("Tool outputs changed from all-low reference")
+        if outputs != [0, 1, 0, 0, 0]:
+            raise RuntimeError("Requires manufacturer OFF/release state: DO0=0, DO1=1")
+        if read_value(arm.get_tool_digital_input(), "preflight pickup input")[0] != 0:
+            raise RuntimeError("Pickup input remains asserted before the trial")
         outcome["preflight"] = {
             "pose": pose,
             "tcp_offset": arm.tcp_offset,
             "load": arm.tcp_load,
             "lift_mm": high[2] - low[2],
+            "start_pose": start_pose,
+            "release_pose": release_pose,
         }
         print(json.dumps(outcome["preflight"], indent=2), flush=True)
         if args.execute:
             perform_cycle(
-                arm, low, high, events, release_at_hover=args.release_at_hover
+                arm,
+                low,
+                high,
+                events,
+                release_at_hover=args.release_at_hover,
+                start_pose=start_pose,
+                release_pose=release_pose,
             )
         outcome["result"] = "completed" if args.execute else "preflight_only_passed"
     except Exception as exc:

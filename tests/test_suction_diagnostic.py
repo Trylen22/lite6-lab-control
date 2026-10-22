@@ -28,15 +28,11 @@ class FakeTool:
         return 0, [0, 0, 0]
 
     def get_tgpio_output_digital(self):
-        return 0, [int(self.on), 0, 0, 0, 0]
+        return 0, [int(self.on), int(not self.on), 0, 0, 0]
 
     def set_vacuum_gripper(self, on, **kwargs):
         self.on = on
         self.calls.append(("vacuum", on))
-        return 0
-
-    def set_tgpio_digital(self, pin, value, **kwargs):
-        self.calls.append(("output", pin, value))
         return 0
 
     def __getattr__(self, name):
@@ -48,9 +44,7 @@ class StationaryDiagnostic(unittest.TestCase):
         tool = FakeTool()
         samples = []
         pulse(tool, [200, 70, 95, 180, 0, 0], samples, sleep=lambda _: None)
-        self.assertEqual(
-            tool.calls, [("vacuum", True), ("vacuum", False), ("output", 1, 0)]
-        )
+        self.assertEqual(tool.calls, [("vacuum", True), ("vacuum", False)])
         self.assertEqual(sum(row["phase"] == "on" for row in samples), 20)
         self.assertFalse(tool.on)
 

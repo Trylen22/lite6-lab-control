@@ -48,10 +48,10 @@ def pulse(arm, expected, samples, seconds=2.0, sleep=time.sleep):
     if (
         baseline["state"] != 2
         or baseline["errors"] != [0, 0]
-        or any(baseline["outputs"])
+        or baseline["outputs"] != [0, 1, 0, 0, 0]
     ):
         raise RuntimeError(
-            "Requires idle/error-free controller and all tool outputs low"
+            "Requires idle/error-free controller and manufacturer OFF/release outputs"
         )
     if any(abs(a - b) > 0.25 for a, b in zip(baseline["pose"], expected)):
         raise RuntimeError("Pose changed since the stationary inspection")
@@ -72,12 +72,19 @@ def pulse(arm, expected, samples, seconds=2.0, sleep=time.sleep):
             if any(abs(a - b) > 0.25 for a, b in zip(result["pose"], expected)):
                 raise RuntimeError("Arm position changed during stationary test")
     finally:
-        # No lift occurs in this diagnostic. End suction, briefly allow the
-        # release output, then return both outputs to the all-low baseline.
+        # Leave the manufacturer's OFF/release state asserted. Do not convert
+        # it to all-low or infer physical release solely from the command ACK.
         require_zero(arm.set_vacuum_gripper(False, wait=False, sync=False))
-        sleep(0.3)
-        require_zero(arm.set_tgpio_digital(1, 0, sync=False))
-        samples.append({"phase": "after", **sample(arm)})
+        released = False
+        for _ in range(20):
+            sleep(0.1)
+            final = sample(arm)
+            samples.append({"phase": "after", **final})
+            if final["outputs"] == [0, 1, 0, 0, 0] and final["inputs"][0] == 0:
+                released = True
+                break
+        if not released:
+            raise RuntimeError("Release output/pickup feedback not confirmed")
 
 
 def main():
