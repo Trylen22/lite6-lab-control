@@ -1107,3 +1107,24 @@ footer span:nth-child(2) {
   margin: 6px 0;
   line-height: 1.5;
 }
+
+#cup-aim-guide {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: #ffdb57;
+  font-size: 32px;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 3px #000;
+}
+#cup-aim-guide span {
+  position: absolute;
+  left: 32px;
+  top: 12px;
+  font-size: 10px;
+  white-space: nowrap;
+  font-weight: 700;
+}
+#cup-aim-guide[hidden] {
+  display: none;
+}

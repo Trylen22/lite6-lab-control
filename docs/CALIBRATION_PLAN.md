@@ -128,3 +128,15 @@ separate. The current taught path is rejected at read-only preflight because
 of wrist IK discontinuity. Do not execute until the geometry is re-taught and
 planning passes; do not increase thresholds to hide a singularity. A straight
 TCP path can still require a large joint rotation.
+
+### Relocating an observation spot without a ruler
+
+`python -m labdeck.green_relocate` plans a specific +40 mm base-X relocation;
+`--execute` runs two slow high-level checkpoints with the tool OFF. This is a
+supervised installation experiment, not a general arbitrary jogging interface.
+It first previews translation and hypothetical descent, archives/invalidate the
+old active fit, then records each completed checkpoint. Failures never trigger
+a recovery move. The UI's yellow CUP AIM retains the fixed camera/tool image
+geometry during pure XY translation and guides manual block placement. It does
+not certify contact or preserve the old fit's sampled workspace. New contact
+teaching and measurements must establish the relocated pickup region.

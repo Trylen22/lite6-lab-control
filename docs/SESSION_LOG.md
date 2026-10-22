@@ -90,3 +90,13 @@ single-pick read-only plan, which aborted on IK discontinuity before any motion.
 A finer read-only trace confirmed a wrist singularity near low contact height.
 Arm remains at observation height, released, no controller faults. A different
 continuous contact/observation configuration is needed before pickup.
+
+### Authorized high observation relocation
+
+User: "lets move it so you can grab it". Confirmed current pose matched the
+previous observation state. Read-only checks passed for +40 mm base-X at fixed
+height, and the hypothetical new descent had no prior wrist discontinuity.
+Executed two +20 mm tool-OFF translations, verified final idle/release.
+Added a stationary placement reticle to the UI, invalidated the old active fit,
+and instructed operator to reposition the block using the guide without a
+ruler. Awaiting block placement; no automatic descent or tool activation.

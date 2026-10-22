@@ -48,3 +48,13 @@ NO descent/tool activation occurred. Current arm is idle at observation height,
 release I/O checked. Preserve this guard. Establish and validate a different
 continuous posture/path and re-teach contact before picking. Calibration is a
 local fixed-height experiment, not a general workspace or gesture policy.
+
+## Authorized relocation and placement handoff
+
+User subsequently requested moving the setup for pickup and confirmed clear
+space. Empty wrist moved +40 mm base X at fixed observation height in two slow
+segments; final idle/release verified. Previous fit archived and invalidated.
+UI yellow CUP AIM is now placement guidance only, not active pickup calibration.
+Operator has been asked to slide the green marker onto it, remove their hand
+and report positioned. Do not move while the operator is placing the block.
+New contact teaching and fresh calibration checks remain necessary.

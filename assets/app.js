@@ -334,10 +334,20 @@ async function refreshCalibration() {
       signal: AbortSignal.timeout(2000),
     });
     const fit = await response.json();
-    $("calibration-detail").textContent = fit.aim_px
-      ? `Recorded aim (${fit.aim_px.map((x) => x.toFixed(1)).join(", ")}) px · fit error ${fit.max_residual_px.toFixed(2)} px. Valid only at the taught height and wrist orientation.`
-      : "No recorded XY fit. Pixels are not pickup coordinates.";
+    const guide = $("cup-aim-guide");
+    guide.hidden = !fit.aim_px;
+    if (fit.aim_px) {
+      guide.style.left = `${(100 * fit.aim_px[0]) / fit.resolution[0]}%`;
+      guide.style.top = `${(100 * fit.aim_px[1]) / fit.resolution[1]}%`;
+    }
+    $("calibration-detail").textContent =
+      fit.status === "placement_guide_only"
+        ? "Arm relocated and idle. Slide the green marker onto the yellow CUP AIM guide. New contact teaching is required."
+        : fit.aim_px
+          ? `Recorded aim (${fit.aim_px.map((x) => x.toFixed(1)).join(", ")}) px · fit error ${fit.max_residual_px.toFixed(2)} px. Valid only at the taught height and wrist orientation.`
+          : "No recorded XY fit. Pixels are not pickup coordinates.";
   } catch (_) {
+    $("cup-aim-guide").hidden = true;
     $("calibration-detail").textContent = "Calibration status unavailable.";
   }
 }

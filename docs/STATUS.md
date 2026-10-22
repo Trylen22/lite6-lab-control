@@ -145,3 +145,22 @@ joint increment about 0.50 degrees per 2 mm descent; minimum |J5| about 6.09
 degrees). This is a hypothetical IK result, NOT collision clearance or a taught
 contact. Operator tabletop-space confirmation and fresh contact teaching are
 pending; no relocation or movement to this candidate has occurred.
+
+## Relocation completed; operator block placement pending
+
+User explicitly requested relocating the setup for pickup, after confirming
+clear space. The empty wrist translated +40 mm in robot-base X as two 20 mm
+segments, 5 mm/s, at unchanged observation height/orientation. Rechecked idle,
+no faults, release outputs and pickup input low. No descent or suction command.
+The candidate full descent was checked read-only at <=2 mm intervals: largest
+predicted joint increment 0.501 degrees and minimum |J5| 6.178 degrees.
+This remains a hypothetical descent, not physically taught contact.
+
+`green_relocate` defaults to a read-only plan and requires `--execute` to move.
+It archives and invalidates the previous active calibration before translation;
+actual records are ignored locally. The UI now shows a yellow CUP AIM marker
+from the preserved fixed-height camera/tool geometry, explicitly labeled a
+placement guide only. The operator is to slide the block to that guide, remove
+their hand and report ready. The arm must remain stationary during placement.
+New contact teaching and fresh XY checks are required before pickup. Camera
+producer stayed connected throughout; only the dashboard was reloaded.

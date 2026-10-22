@@ -192,9 +192,23 @@ def make_handler(vision, robot, stop):
                 # Read-only teaching data. A recorded fit is NOT a live motion
                 # authorization; the standalone controller rechecks all context.
                 try:
-                    model = json.loads(
-                        (ROOT / "local/calibration/green.json").read_text()
-                    )
+                    model_path = ROOT / "local/calibration/green.json"
+                    if model_path.exists():
+                        model = json.loads(model_path.read_text())
+                    else:
+                        relocation = json.loads(
+                            (ROOT / "local/calibration/relocation.json").read_text()
+                        )
+                        if relocation["status"] != "awaiting_operator_block_placement":
+                            raise ValueError("No stationary placement guide")
+                        # Fixed camera-to-cup geometry preserves this image guide
+                        # during pure XY translation. It is NOT a renewed XY fit
+                        # or a taught contact at the relocated pickup position.
+                        model = {
+                            **relocation["original_model"],
+                            "status": "placement_guide_only",
+                            "pickup_validated": False,
+                        }
                     self.send_json(
                         200,
                         {
