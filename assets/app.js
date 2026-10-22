@@ -325,3 +325,21 @@ async function poll() {
 }
 setModePresentation("color");
 poll();
+
+// A saved fit explains the experiment; it never sends movement commands.
+async function refreshCalibration() {
+  try {
+    const response = await fetch("/api/calibration", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(2000),
+    });
+    const fit = await response.json();
+    $("calibration-detail").textContent = fit.aim_px
+      ? `Recorded aim (${fit.aim_px.map((x) => x.toFixed(1)).join(", ")}) px · fit error ${fit.max_residual_px.toFixed(2)} px. Valid only at the taught height and wrist orientation.`
+      : "No recorded XY fit. Pixels are not pickup coordinates.";
+  } catch (_) {
+    $("calibration-detail").textContent = "Calibration status unavailable.";
+  }
+}
+refreshCalibration();
+setInterval(refreshCalibration, 3000);

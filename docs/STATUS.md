@@ -92,3 +92,56 @@ At the operator's explicit request for more lift, added and offline-tested the f
 Immediately issued the manufacturer OFF/release command without arm movement and left it asserted. Readback: DO0=0, DO1=1, all pickup inputs zero, SDK vacuum -1, no errors. Removed the unvalidated extra low-level reset of DO1 from the trial and diagnostic. Added release output/pickup-input verification and a regression test that rejects completion when release feedback stays asserted. All 18 offline tests and lint pass. No corrected motion trial has been run.
 
 Staged the next fixed-height vision calibration/centering plan in JETMAX_TO_LITE6.md. Camera-to-cup mapping and automatic pickup retries are still not implemented or calibrated.
+
+## Current green calibration checkpoint
+
+The operator confirmed the block released and suction stopped. The arm completed
+supervised upward-only observation moves to Z=200 mm, 5 mm/s, suction OFF, and
+was verified idle before handing observation positioning to the operator.
+The camera feed recovered after a preview restart/reconnect failure.
+
+The new `python -m labdeck.green_calibrate` workflow separates upward positioning,
+fixed-height XY sampling, and align-only execution. All motion requires
+`--execute`; no calibration stage operates suction or descends. The pure response
+math has synthetic axis/sign, norm limit and bad-data tests (21 total offline
+tests pass). Hardware sampling and alignment remain UNVALIDATED; there is no
+vision-calibrated pickup yet. Calibration records and actual device configuration
+remain ignored under `local/`.
+
+## Latest measured result: local XY alignment verified
+
+Operator jogged vertically to a useful observation view at approximately
+Z=265.72 mm while preserving taught XY and wrist orientation. Fresh images
+showed one stable green marker. The tool stayed in manufacturer OFF/release.
+A 20 mm square of known XY samples produced the measured response:
+
+```
+image_dx_px =  0.1583 * robot_dx_mm - 1.9628 * robot_dy_mm
+image_dy_px = -1.9633 * robot_dx_mm - 0.2128 * robot_dy_mm
+```
+
+Maximum fitting residual: 0.733 px; independent interior validation: 0.261,
+0.410 and 0.504 px. Condition number: 1.028. A +5/+5 mm offset was corrected
+using five bounded visual corrections, ending at an estimated 0.063 mm image
+model error. This is not independently measured physical cup accuracy.
+The operator confirmed the block stayed at its taught location.
+
+**Pickup remains unvalidated.** Read-only descent planning rejected a wrist
+singularity: a finer 2 mm diagnostic showed a predicted >60 degree wrist joint
+change near the taught low height. No descent or suction command was executed.
+Do not loosen the IK guard to make this pass. Establish a contact/observation
+configuration with a continuous joint path, re-teach its cup contact and repeat
+XY calibration. The arm is idle at observation height with release I/O verified.
+
+`green_pick` is an explicit, default-read-only single-cycle prototype. It checks
+fresh alignment and previews the full descent before any movement; on this
+current geometry its preflight correctly aborts. It has no retry or depth
+extrapolation. All 23 offline tests and Ruff pass. Browser assets pass syntax and
+format checks; native browser visual QA is unavailable in this environment.
+
+A follow-up read-only candidate check suggests relocating the same pickup spot
+40 mm along robot-base +X would avoid this singular region (largest predicted
+joint increment about 0.50 degrees per 2 mm descent; minimum |J5| about 6.09
+degrees). This is a hypothetical IK result, NOT collision clearance or a taught
+contact. Operator tabletop-space confirmation and fresh contact teaching are
+pending; no relocation or movement to this candidate has occurred.

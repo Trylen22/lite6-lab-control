@@ -1097,3 +1097,13 @@ footer span:nth-child(2) {
 .metric small {
   font-size: 10px;
 }
+
+.calibration-summary {
+  padding: 16px 20px 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+.calibration-summary p {
+  margin: 6px 0;
+  line-height: 1.5;
+}

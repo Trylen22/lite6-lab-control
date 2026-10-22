@@ -124,3 +124,19 @@ No pickup feedback means no lift. A motion/feedback failure away from confirmed 
 SDK vacuum state: `-1 = tool off`, `0 = no pickup feedback`, `1 = pickup feedback`. An audible pump is not seal confirmation. Changing the pose invalidates an old taught path. The stopped/started state of the pump and physical object clearance still require operator observation; sensor readback does not measure cup compliance.
 
 See [JetMax comparison and the next vision step](docs/JETMAX_TO_LITE6.md).
+
+### Fixed-height green calibration experiment
+
+The isolated CLI `python -m labdeck.green_calibrate` separates `raise`,
+`adopt-watch` (record a manual vertical jog), `sample`, `probe`, and `align`.
+Commands preview/read only unless `--execute` is supplied. The first `raise`
+requires `--contact PATH` to an operator-taught, ignored local record. Never
+borrow a contact from another robot, object or session. See
+[the calibration plan](docs/CALIBRATION_PLAN.md) and
+[current physical validation](docs/STATUS.md) before hardware use.
+
+A measured local XY fit and feedback alignment have passed on hardware.
+Pickup remains blocked by the present low-height wrist configuration; the
+read-only `python -m labdeck.green_pick --block-unchanged` plan correctly rejects
+that path. Do not bypass the IK guard. The UI displays saved fit measurements;
+there are still no browser motion endpoints or gesture movement policies.

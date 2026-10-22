@@ -188,6 +188,33 @@ def make_handler(vision, robot, stop):
                 self.send_body(
                     200, (ROOT / "assets" / filename).read_bytes(), content_type
                 )
+            elif path == "/api/calibration":
+                # Read-only teaching data. A recorded fit is NOT a live motion
+                # authorization; the standalone controller rechecks all context.
+                try:
+                    model = json.loads(
+                        (ROOT / "local/calibration/green.json").read_text()
+                    )
+                    self.send_json(
+                        200,
+                        {
+                            key: model[key]
+                            for key in (
+                                "aim_px",
+                                "jacobian_px_per_mm",
+                                "max_residual_px",
+                                "condition",
+                                "resolution",
+                                "captured_utc",
+                                "status",
+                                "pickup_validated",
+                            )
+                        },
+                    )
+                except (OSError, ValueError, KeyError):
+                    self.send_json(
+                        200, {"status": "not_calibrated", "pickup_validated": False}
+                    )
             elif path == "/api/status":
                 self.send_json(
                     200,

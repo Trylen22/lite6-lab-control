@@ -87,3 +87,44 @@ Start with a dry-run overlay and compare predicted versus measured points. Futur
 - A measured reference target/plane and independent validation observations.
 
 No active calibration file or controller offsets were populated from the reference dimensions.
+
+## Implemented fixed-height experiment
+
+`python -m labdeck.green_calibrate raise --z HEIGHT` previews only; adding
+`--execute` requests upward-only movement through short checkpoints. It requires
+the local historical contact record and the verified released starting pose.
+`sample` measures a 20 mm XY square at one height and wrist orientation, fits
+`pixels = aim + J * robot_XY_displacement`, and checks separate interior samples.
+`align` solves `J * correction = aim - current_pixels`, damps the result, caps
+each step at 2 mm, and refuses positions outside that measured square. Sampling
+and alignment remain physical experiments pending validation.
+
+The camera process supplies an atomic observation with a producer session and
+frame sequence. Calibration requires three distinct fresh, stable frames and
+exactly one candidate; it does not select the largest among ambiguous targets.
+A camera restart invalidates a fitted model. Height, orientation, image geometry,
+controller offsets, load, release I/O and controller health are checked.
+IK samples test reachability and joint continuity only; they do not establish
+obstacle clearance. Scripts never enable/reset the arm or recover blindly.
+
+The aim point is meaningful only when the raised pose retains the XY relationship
+of the successful cup contact AND the block has not moved. Dropping a block may
+shift it; that relationship must be physically checked before descent. A good
+least-squares residual alone cannot prove the cup will contact the marker.
+There is no descent, tool activation or unlimited retry in this experiment.
+
+### Operator jog and path checks
+
+After a vertical operator jog, `adopt-watch` records a fresh useful view only if
+XY and wrist orientation match the preceding reference. It never moves hardware.
+`probe --execute` makes one fixed +5/+5 mm offset for a feedback test; follow
+with `align --execute`. Keep the block still during sampling/probing. An actual
+block move needs a new fresh observation, valid sampled region and scene check.
+
+`python -m labdeck.green_pick --block-unchanged` prints the single-pick plan and
+checks the whole descent without moving. The extra flag records the operator's
+physical confirmation, not a vision inference. `--execute` is deliberately
+separate. The current taught path is rejected at read-only preflight because
+of wrist IK discontinuity. Do not execute until the geometry is re-taught and
+planning passes; do not increase thresholds to hide a singularity. A straight
+TCP path can still require a large joint rotation.

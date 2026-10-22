@@ -2,10 +2,12 @@
 """Stream color video to localhost. No robot control or persistent camera writes."""
 
 import argparse
+import base64
 import json
 import signal
 import threading
 import time
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import cv2
@@ -20,6 +22,7 @@ def main():
     stop = threading.Event()
     condition = threading.Condition()
     latest = {"jpeg": None, "frames": 0, "time": 0.0}
+    session_id = uuid.uuid4().hex
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
 
@@ -46,7 +49,7 @@ catch(e){document.getElementById('status').textContent='Preview server disconnec
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
-            elif self.path in ("/health", "/snapshot.jpg"):
+            elif self.path in ("/health", "/snapshot.jpg", "/observation.json"):
                 with condition:
                     frame = latest.copy()
                 age = time.monotonic() - frame["time"]
@@ -57,6 +60,22 @@ catch(e){document.getElementById('status').textContent='Preview server disconnec
                             "fresh": fresh,
                             "frames": frame["frames"],
                             "age_seconds": round(age, 3),
+                        }
+                    ).encode()
+                    content_type = "application/json"
+                elif self.path == "/observation.json":
+                    # Metadata and pixels come from ONE locked copy. A consumer
+                    # can reject duplicate frames and frames from an old process.
+                    body = json.dumps(
+                        {
+                            "session": session_id,
+                            "sequence": frame["frames"],
+                            "received_monotonic": frame["time"],
+                            "age_seconds": age,
+                            "fresh": fresh,
+                            "jpeg_base64": base64.b64encode(frame["jpeg"]).decode()
+                            if fresh
+                            else None,
                         }
                     ).encode()
                     content_type = "application/json"

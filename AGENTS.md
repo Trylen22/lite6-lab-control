@@ -23,3 +23,28 @@ The user requires this repo to be heavily commented, educational, and clean. Exp
 ## Latest supervised trial and release finding
 
 The user authorized a 10 mm lift after the successful 2 mm test. The controller completed the bounded 10 mm sequence, but the user reported vacuum did not shut off. A no-motion correction sent the manufacturer OFF/release state (DO0 low, DO1 high) and left it asserted. Prior code's extra reset of DO1 to low was an unvalidated assumption and is now removed. Both scripts now verify OFF/release outputs plus pickup input low; do not reintroduce an all-low tool baseline or call a command ACK physical release. Operator physical pump/block confirmation remains distinct from I/O. No additional movement is authorized by the subsequent planning/comparison questions.
+
+## Current calibration authorization and manual handoff
+
+The user's latest concrete request authorizes supervised green-block movement
+calibration and coordinated pickup development. Physical release and suction
+stopped were explicitly confirmed. This supersedes the earlier statement that
+planning questions alone did not authorize movement. Upward-only observation
+positioning has reached Z=200 mm. The operator then offered to jog the camera
+into view: no autonomous movement may overlap this manual handoff. Re-read the
+pose and reconcile it with the taught XY/orientation before resuming. XY response
+sampling and align-only motion have not been validated on hardware; descent and
+pickup need a validated aiming/contact relationship. Keep a bounded controller,
+seal feedback and the corrected release state. Gesture requests describe future
+work, not permission for unrestricted motion.
+
+## Measured alignment and current pickup blocker
+
+Subsequent operator vertical jogging reached a useful view. A local 20 mm XY
+response fit and independent checks passed, then a +5/+5 mm offset was corrected
+in five bounded image-guided moves. Operator confirmed block unchanged. Full
+pickup descent preflight then rejected wrist IK discontinuity near contact;
+NO descent/tool activation occurred. Current arm is idle at observation height,
+release I/O checked. Preserve this guard. Establish and validate a different
+continuous posture/path and re-teach contact before picking. Calibration is a
+local fixed-height experiment, not a general workspace or gesture policy.

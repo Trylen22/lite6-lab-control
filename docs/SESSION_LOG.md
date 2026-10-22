@@ -62,3 +62,31 @@ Passed: shell syntax check, local host-inventory execution on the development wo
 - Verified fresh health response and decoded/visually inspected a current JPEG. A two-second MJPEG sample contained 31 frame boundaries. Verified script syntax.
 - Preview URL on the laptop: http://127.0.0.1:8090/ . Process intentionally remains running for the operator. Browser automation was unavailable, so the page must be opened by the operator; HTTP and image delivery were verified directly.
 - Dependencies pinned for this laptop in requirements-preview.txt. Diagnostic images remain ignored locally. No continuous recording, firmware flash, persistent camera settings, IR emitter commands, or arm control.
+
+### Supervised green calibration: vertical observation stage
+
+Operator confirmed physical release and suction stopped after corrected OFF.
+Added atomic camera observations (session ID, frame sequence, receipt time and
+JPEG copied together) and a separate explicit-execution calibration CLI.
+The preview restart initially failed to reconnect; a second connection restored
+fresh frames. No firmware, address or persistent camera setting was changed.
+The first 20 mm upward segment reached its target, then a 0.05 degree planning
+guard rejected the reported 0.23 degree wrist deviation. Reconciled the planning
+tolerance with the existing 0.3 degree reached-pose tolerance; preserved the
+checkpoint and continued vertically in 20 mm segments at 5 mm/s to Z=200 mm.
+Controller idle, no faults, manufacturer release I/O verified. Operator offered
+to jog to a useful observation view; autonomous movement ended for that handoff.
+No XY sampling, calibrated alignment, camera-guided descent or pickup has run.
+
+### Measured XY fit and rejected pickup path
+
+The operator completed a vertical jog into view. Captured a stable marker,
+sampled a 20 mm XY square and independent interior points, and returned to the
+raised reference. Maximum residual 0.733 px; holdout maximum 0.504 px. A fixed
++5/+5 mm probe followed by five image-guided corrections converged to estimated
+0.063 mm model error. No descent or suction was part of this test.
+Operator explicitly confirmed the block had stayed in place. Prepared the
+single-pick read-only plan, which aborted on IK discontinuity before any motion.
+A finer read-only trace confirmed a wrist singularity near low contact height.
+Arm remains at observation height, released, no controller faults. A different
+continuous contact/observation configuration is needed before pickup.
