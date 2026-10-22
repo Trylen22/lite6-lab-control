@@ -67,3 +67,30 @@ class MotionPreviewTests(unittest.TestCase):
         robot.check = lambda: [200, 70, 260, -179, -2, 2]
         with self.assertRaisesRegex(RuntimeError, "orientation fixed"):
             robot.preview([200, 70, 240, -175, -2, 2])
+
+
+class MovementTimeoutTests(unittest.TestCase):
+    def test_slow_twenty_mm_move_has_enough_wait_time(self):
+        from unittest.mock import patch
+        import io
+        from labdeck.calibration_motion import CalibrationArm
+
+        class FakeArm:
+            def set_position(self, *args, **kwargs):
+                self.command = kwargs
+                return 0
+
+        robot = CalibrationArm()
+        robot.arm = FakeArm()
+        start = [200, 70, 120, -179, -2, 2]
+        target = [200, 70, 100, -179, -2, 2]
+        robot.preview = lambda _: {"start": start, "target": target}
+        reached = iter([start, target])
+        robot.check = lambda: next(reached)
+        # Fake loopback camera and fake SDK: no network or hardware movement.
+        with patch(
+            "labdeck.calibration_motion.urllib.request.urlopen",
+            return_value=io.BytesIO(b'{"fresh":true,"age_seconds":0.01}'),
+        ):
+            robot.move(target, speed=2)
+        self.assertGreaterEqual(robot.arm.command["timeout"], 13)

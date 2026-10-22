@@ -140,3 +140,11 @@ Pickup remains blocked by the present low-height wrist configuration; the
 read-only `python -m labdeck.green_pick --block-unchanged` plan correctly rejects
 that path. Do not bypass the IK guard. The UI displays saved fit measurements;
 there are still no browser motion endpoints or gesture movement policies.
+
+The relocated local prototype also separates `green_teach` (approach only),
+`contact_pick` (one operator-bounded seal search and pick), and
+`repeat_green_pick` (one camera-guided return/repeat). Each defaults to a read-only
+plan and requires fresh local teaching/trial records for execution. The verified
+repeat supports the explicitly authorized `--speed-scale 1.15`; suction turns ON
+before final descent, and neither speed adjustment nor failed seal permits a
+deeper contact. See the latest status before using any experimental motion CLI.

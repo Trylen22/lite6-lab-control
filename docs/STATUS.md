@@ -164,3 +164,60 @@ placement guide only. The operator is to slide the block to that guide, remove
 their hand and report ready. The arm must remain stationary during placement.
 New contact teaching and fresh XY checks are required before pickup. Camera
 producer stayed connected throughout; only the dashboard was reloaded.
+
+## New block placed; clearance approach completed
+
+Operator reported the relocated marker was on the guide. Live images confirmed
+one stable green candidate, no visible hand in the image. The standalone
+`green_teach` workflow corrected the small placement error at observation
+height with two small XY moves, ending at estimated 0.363 mm guide error.
+The complete new vertical approach passed fresh IK preview (maximum predicted
+joint increment 1.221 degrees per <=5 mm sample). Executed bounded vertical
+segments to 10 mm ABOVE the historical sealed-contact floor; final approach was
+2 mm/s. Arm verified idle and released, no controller faults. No tool activation
+or newly taught contact occurred. Operator physical inspection of cup centering
+and gap/contact is pending. Do not interpret the historical-floor clearance as
+an independently measured cup-to-block gap.
+
+Adjusted SDK wait timeout to distance/speed plus settling allowance so a slow
+20 mm move at 2 mm/s cannot time out at the old fixed 8 seconds. Added an offline
+fake-SDK regression for this case; all 24 offline tests and Ruff pass.
+
+## Latest result: first relocated pickup and 15% faster repeat completed
+
+After the operator reported the cup centered with about a 5 mm gap, a bounded
+0.5 mm-step contact search established three consecutive seal reports after
+4 mm descent. The arm lifted 10 mm, held two seconds, lowered to 2 mm clearance
+and asserted/verified release. The operator confirmed the block physically
+lifted. This established a NEW sealed contact floor; it is shallower than the
+historical compressed floor. All measured poses and feedback remain local.
+
+The user explicitly requested return to the observation pose and one repeat,
+15% faster and without approach checkpoint pauses. The repeat returned in one
+continuous vertical move, reacquired the marker, corrected about 1 mm of XY
+error, and performed a continuous high approach. The first repeat changed the
+successful suction ordering (ON only after reaching contact) and timed out on
+attachment; it released at known contact and did not lift. Restored suction ON
+before the final slow approach, retaining the SAME new floor and speed cap.
+
+A subsequent stationary readback exposed another fault: the SDK paired ON call
+could ACK while BOTH outputs stayed low. This does not prove a firmware race,
+and waiting alone did not correct it. The shared `checked_vacuum` helper now
+verifies the paired state and, if needed, applies ordered individual output
+writes with readback after each. It clears the opposing line before asserting
+the desired line; it preserves an already-ON seal and explicitly reasserts OFF.
+Output state remains distinct from independent attachment feedback.
+
+With verified ON outputs before descent, the same-floor repeat sealed, lifted
+10 mm at 2.3 mm/s, held two seconds, lowered at 2.3 mm/s and released. High
+approach/return was 5.75 mm/s; final search was 0.575 mm/s. Accelerations, contact
+floor, seal gates and two-second hold were unchanged. Final robot state idle,
+no faults, release pair [0,1] and pickup input low. No automatic extra cycle.
+
+This is a supervised LOCAL green-guided pickup prototype, using the measured
+fixed-height response and a newly verified cup/contact anchor. It is not a
+workspace-wide calibration or unrestricted gesture policy. The old active fit
+remains invalidated after relocation; source records and trial traces preserve
+the distinction. All 34 offline tests pass, including failed seal/no lift,
+output ACK/both-low repair, output readback failure, timeout coverage, and the
+15% speed cap. Ruff and browser syntax checks pass.

@@ -140,3 +140,32 @@ a recovery move. The UI's yellow CUP AIM retains the fixed camera/tool image
 geometry during pure XY translation and guides manual block placement. It does
 not certify contact or preserve the old fit's sampled workspace. New contact
 teaching and measurements must establish the relocated pickup region.
+
+`python -m labdeck.green_teach` inspects the reported relocated placement;
+`--execute` permits only small guide corrections and a vertical approach that
+stops 10 mm above the historical sealed-contact floor. The old camera response
+is used only for bounded guide alignment under unchanged camera/plane geometry.
+This does not create an active calibration, certify a physical gap, or teach
+contact. New operator contact inspection is a distinct prerequisite. Failure
+records preserve the last checkpoint and never command recovery movements.
+
+### Contact feedback, suction ordering, and a bounded repeat
+
+`contact_pick` starts only from a recently inspected clearance and searches at
+most the operator-estimated 5 mm in 0.5 mm increments. It requires three stable
+DI0/vacuum assertions before lifting. No seal means release in place and no lift.
+The new seal pose supplies the next contact floor; old compressed poses do not.
+
+`repeat_green_pick` previews by default. With explicit execution, a physically
+confirmed first cycle, and `--speed-scale 1.15`, it returns continuously to the
+new observation pose, reacquires green and corrects a bounded local XY error,
+then makes one continuous high approach. Suction must be ON and output-verified
+BEFORE the final bounded contact search. Scale is capped at the user-authorized
+15% increase; it changes speed, not acceleration, hold duration or contact floor.
+One changed-sequence same-floor retry requires an explicit fresh failed-seal
+record. It never extends the floor or creates an unbounded retry loop.
+
+`checked_vacuum` distinguishes three observations: command ACK, output pair,
+and seal input. Live ACK/both-low behavior is handled by checked ordered output
+writes when necessary; a verified ON pair still cannot authorize a lift without
+independent seal feedback. The cause of the paired-write behavior is not proven.

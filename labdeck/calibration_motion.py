@@ -146,8 +146,12 @@ class CalibrationArm:
         # A second check rejects operator changes during IK computation.
         if not np.allclose(self.check(), plan["start"], atol=0.1, rtol=0):
             raise RuntimeError("Pose changed during planning")
+        # Timeout must cover travel at the selected speed plus acceleration and
+        # SDK settling. A fixed 8 s timeout is insufficient for 20 mm at 2 mm/s.
+        distance = float(np.linalg.norm(np.array(target[:3]) - plan["start"][:3]))
+        timeout = max(8, distance / speed + 3)
         code = self.arm.set_position(
-            *target, speed=speed, mvacc=10, is_radian=False, wait=True, timeout=8
+            *target, speed=speed, mvacc=10, is_radian=False, wait=True, timeout=timeout
         )
         if code != 0:
             raise RuntimeError(f"Movement returned {code}; no recovery move")

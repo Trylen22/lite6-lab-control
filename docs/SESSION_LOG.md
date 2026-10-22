@@ -100,3 +100,27 @@ Executed two +20 mm tool-OFF translations, verified final idle/release.
 Added a stationary placement reticle to the UI, invalidated the old active fit,
 and instructed operator to reposition the block using the guide without a
 ruler. Awaiting block placement; no automatic descent or tool activation.
+
+### Guided placement correction and clearance approach
+
+Operator: "okay its on there". Verified fresh marker and unchanged stationary
+wrist. Corrected small placement error with two image-based XY moves at the
+same observation height. Fresh full approach IK passed without the previous
+wrist jump. Descended along fixed XY/orientation, tool OFF, stopping 10 mm above
+the old contact floor. Verified idle/release and no faults. Requested physical
+cup-centering/gap inspection before contact teaching. No suction/lift attempted.
+
+### First relocated seal/pick, physical confirmation, and faster repeat
+
+Operator estimated 5 mm to suction contact. Searched at 0.5 mm increments with
+pump ON and a strict 5 mm maximum, stopping at confirmed seal after 4 mm. The
+first output-transition check aborted before motion; a settling check allowed
+the next attempt. Completed 10 mm lift/two-second hold/lower/release. Operator
+confirmed physical lift and requested return/one repeat at +15% speed.
+Returned continuously to the new observation pose, reacquired green, corrected
+small XY drift and descended. Attachment timed out; no lift, release verified.
+The repeat had incorrectly delayed suction until contact. Restored ON-before-
+descent; a further stationary ON readback showed all-low despite SDK ACK. Added
+verified ordered individual-output fallback, then completed same-floor repeat:
+seal, 10 mm lift at 2.3 mm/s, hold two seconds, lower/release. Final idle and
+release I/O verified. No deeper retry or extra cycle. Actual traces local.

@@ -21,6 +21,12 @@ import tomllib
 
 from xarm.wrapper import XArmAPI
 
+# Direct script execution places scripts/ first; add the project package root.
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from labdeck.suction import checked_vacuum
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -61,6 +67,7 @@ def perform_cycle(
     release_at_hover=False,
     start_pose=None,
     release_pose=None,
+    speed_scale=1.0,
 ):
     """Execute on an already checked arm; fake-arm tests exercise failure paths.
 
@@ -77,6 +84,8 @@ def perform_cycle(
     If a movement/feedback check fails away from contact, preserve the tool state
     and require operator recovery instead of blindly descending or dropping.
     """
+    if not math.isfinite(speed_scale) or not 1 <= speed_scale <= 1.15:
+        raise ValueError("Speed scale must be between 1.0 and the authorized 1.15")
     at_contact = start_pose is None
     suction_started = False
 
@@ -110,7 +119,9 @@ def perform_cycle(
         # The manufacturer's OFF state is DO0=0, DO1=1. Leave release asserted.
         # Clearing DO1 to zero was an unvalidated assumption and was removed
         # after the operator reported incomplete shutoff. Verify I/O, not sound.
-        require_zero(arm.set_vacuum_gripper(False, wait=False, sync=False), operation)
+        require_zero(
+            checked_vacuum(arm, False, wait=False, sync=False, sleep=sleep), operation
+        )
         for _ in range(20):
             sleep(0.1)
             outputs = read_value(
@@ -126,10 +137,15 @@ def perform_cycle(
 
     def move(target, name):
         healthy()
-        event(name, target=target, speed_mm_s=2, acceleration_mm_s2=5)
+        event(name, target=target, speed_mm_s=2 * speed_scale, acceleration_mm_s2=5)
         require_zero(
             arm.set_position(
-                *target, speed=2, mvacc=5, is_radian=False, wait=True, timeout=10
+                *target,
+                speed=2 * speed_scale,
+                mvacc=5,
+                is_radian=False,
+                wait=True,
+                timeout=10,
             ),
             name,
         )
@@ -147,7 +163,7 @@ def perform_cycle(
         suction_started = True  # A partially successful I/O command also needs cleanup.
         event("suction_on")
         require_zero(
-            arm.set_vacuum_gripper(True, wait=True, timeout=2, sync=False),
+            checked_vacuum(arm, True, wait=True, timeout=2, sync=False, sleep=sleep),
             "confirm suction",
         )
         attached = read_value(arm.get_vacuum_gripper(), "read vacuum feedback")

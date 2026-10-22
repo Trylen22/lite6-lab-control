@@ -56,6 +56,28 @@ class TaughtCycle(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             perform_cycle(arm, LOW, HIGH, [], sleep=lambda _: None)
 
+    def test_authorized_speed_scale_changes_speed_only(self):
+        arm = FakeArm()
+        speeds = []
+        move = arm.set_position
+
+        def capture(*pose, **kwargs):
+            speeds.append((kwargs["speed"], kwargs["mvacc"]))
+            return move(*pose, **kwargs)
+
+        arm.set_position = capture
+        with contextlib.redirect_stdout(io.StringIO()):
+            perform_cycle(arm, LOW, HIGH, [], sleep=lambda _: None, speed_scale=1.15)
+        self.assertEqual(speeds, [(2.3, 5), (2.3, 5)])
+        self.assertEqual(arm.pose, LOW)
+        self.assertFalse(arm.on)
+
+    def test_unapproved_speed_scale_rejected_before_tool_or_motion(self):
+        arm = FakeArm()
+        with self.assertRaises(ValueError):
+            perform_cycle(arm, LOW, HIGH, [], speed_scale=1.16)
+        self.assertEqual(arm.calls, [])
+
     def test_success_is_single_lift_hold_lower_release(self):
         arm = FakeArm()
         self.run_quiet(arm)

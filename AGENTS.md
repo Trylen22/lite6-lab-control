@@ -58,3 +58,28 @@ UI yellow CUP AIM is now placement guidance only, not active pickup calibration.
 Operator has been asked to slide the green marker onto it, remove their hand
 and report positioned. Do not move while the operator is placing the block.
 New contact teaching and fresh calibration checks remain necessary.
+
+## Relocated block clearance checkpoint
+
+Operator reported block placed on guide. Live checks passed; two small XY guide
+corrections and a bounded vertical approach completed. Current arm is idle at
+10 mm above the historical sealed floor (this is NOT measured physical gap),
+manufacturer release outputs verified, no faults. Operator is being asked if
+cup is centered with a gap, off-center, or already touching. Wait for physical
+contact information before further descent; no newly taught contact or suction
+has occurred. Keep the arm stationary during this inspection/handoff.
+
+## Successful relocated pickup and authorized faster repeat
+
+Physical cup inspection reported centered and approximately 5 mm above contact.
+A bounded search sealed after 4 mm; 10 mm lift/hold/lower/release completed.
+Operator confirmed lift, then explicitly requested one return/repeat at 15%
+higher movement speeds with continuous approaches. A seal timeout caused no
+lift and released at contact. Restored suction-before-final-descent. Live ON
+ACK/all-low readback required a checked individual-output fallback; do not
+assume the SDK paired call actually enabled the pump. `labdeck.suction` now
+verifies states and preserves an already-ON seal. Same-floor faster repeat then
+completed, with final idle/release verified. No extra cycle is authorized by
+this completed repeat. Current taught floor is the NEW relocated seal floor;
+never fall back to the old deeply compressed contact. General workspace and
+gesture motion remain out of scope. Active old calibration stays invalidated.
