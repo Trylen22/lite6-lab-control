@@ -17,13 +17,25 @@ PICKUP = [3.5, 20.3, 64.4, -179.5, -42.2, 180.8]
 class FakeSDK:
     """Tool tip height is a made-up function of J2 so paths can dip."""
 
-    def __init__(self, joints, low_dip=False):
+    def __init__(self, joints, low_dip=False, z=300):
         self.angles = list(joints)
         self.low_dip = low_dip
+        self.z = z
+        self.rises = []
         self.mode = 0
         self.moves = []
 
+    def get_position(self):
+        return 0, [300, 0, self.z, 180, 0, 0]
+
+    def set_position(self, *target, **_):
+        self.z = target[2]
+        self.rises.append(target[2])
+        return 0
+
     def get_forward_kinematics(self, joints, **_):
+        if list(joints) == self.angles:
+            return 0, [290, 20, self.z, -179.4, -2.05, 2.48]
         z = 300 - (120 if self.low_dip and 0 < joints[1] < 10 else 0)
         return 0, [290, 20, z, -179.4, -2.05, 2.48]
 
@@ -75,6 +87,19 @@ class TransferArmTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Wrist would spin"):
             fake_arm(sdk).go(np.array(PICKUP))
         self.assertEqual(sdk.moves, [])
+
+    def test_low_arm_in_front_rises_straight_up_before_moving(self):
+        sdk = FakeSDK(HAND, z=225)
+        self.assertTrue(fake_arm(sdk).go(np.array(PICKUP)))
+        self.assertEqual(sdk.rises, [270])
+        self.assertEqual(sdk.moves, [(PICKUP, 25)])
+
+    def test_low_arm_not_in_front_is_refused(self):
+        side = [-60.0] + HAND[1:]
+        sdk = FakeSDK(side, z=225)
+        with self.assertRaisesRegex(RuntimeError, "not in front"):
+            fake_arm(sdk).go(np.array([-55.0] + HAND[1:]))
+        self.assertEqual((sdk.rises, sdk.moves), ([], []))
 
     def test_path_that_dips_toward_table_is_refused(self):
         sdk = FakeSDK(HAND, low_dip=True)

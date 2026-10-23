@@ -41,6 +41,12 @@ ARRIVED_DEG = 0.2
 # hand-jogged wrist may sit on the opposite branch (~180 deg wrist spin).
 MAX_BASE_SWING_DEG = 30
 MAX_WRIST_TURN_DEG = 150
+# A low arm in FRONT of the robot first rises straight up (no turning) to this
+# height. Never near the shelf (|base| > FRONT_BASE_DEG): under the shelf a
+# vertical rise would hit it.
+AUTO_RISE_Z_MM = MIN_TRANSFER_Z_MM + 20
+FRONT_BASE_DEG = 30
+RISE_MM_S = 30
 
 
 class TransferArm(HandServoArm):
@@ -74,6 +80,24 @@ class TransferArm(HandServoArm):
                     f"Path dips below {MIN_TRANSFER_Z_MM} mm; raise the arm first"
                 )
 
+    def rise_straight_up(self, z_mm):
+        """Cartesian vertical move: XY and tool orientation unchanged."""
+        pose = value(self.arm.get_position())
+        target = list(pose)
+        target[2] = z_mm
+        code = self.arm.set_position(
+            *target,
+            speed=RISE_MM_S,
+            mvacc=100,
+            is_radian=False,
+            wait=True,
+            timeout=abs(z_mm - pose[2]) / RISE_MM_S + 10,
+        )
+        if code != 0:
+            raise RuntimeError(f"Straight-up rise returned {code}; no recovery move")
+        if abs(value(self.arm.get_position())[2] - z_mm) > 0.5:
+            raise RuntimeError("Straight-up rise not reached")
+
     def go(self, target):
         start = self.joints()
         if np.max(np.abs(np.array(start) - target)) <= ARRIVED_DEG:
@@ -86,11 +110,16 @@ class TransferArm(HandServoArm):
             )
         if max(change[3], change[5]) > MAX_WRIST_TURN_DEG:
             raise RuntimeError(
-                "Wrist would spin more than 150°; it is on the other wrist "
-                "branch. Jog it near the start pose in Studio first"
+                "Wrist would spin more than 150° (other wrist branch). "
+                "Click Hand puppy first, then Color detection"
             )
-        self.check_path(start, target)
         self.ready_position_mode()
+        if self.fk(start)[2] < MIN_TRANSFER_Z_MM + 10:
+            if abs(start[0]) > FRONT_BASE_DEG:
+                raise RuntimeError("Arm is low and not in front; raise it in Studio")
+            self.rise_straight_up(AUTO_RISE_Z_MM)
+            start = self.joints()
+        self.check_path(start, target)
         if not np.allclose(self.joints(), start, atol=0.1, rtol=0):
             raise RuntimeError("Arm moved during planning")
         travel = float(np.max(np.abs(np.array(start) - target)))
