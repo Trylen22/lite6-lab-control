@@ -92,3 +92,11 @@ joints live in ignored local/start-poses.json on the validated wrist branch
 Page load and status polling still never move the arm. The pickup profile no
 longer expires, and a restarted camera program (new session ID) does not
 require recalibration: same camera and mount. Resolution is still checked.
+
+Pickup workspace widened (2026-10-23, operator decision): the operator said
+the tabletop is large and only ~1 ft to the side risks the table, overriding
+the earlier "union, never the outer rectangle" rule. A read-only IK sweep
+(X 230-390 step 20, Y -180..180 step 30, high -> contact floor -> high ->
+start) passed everywhere with X >= 250. local/automation.json now uses one
+region X 250-390, Y -170..180 (about the camera's view); the old regions are
+kept in "previous_xy_regions_mm" and local/automation.before-widen-*.json.

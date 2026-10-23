@@ -304,3 +304,12 @@ area. Measured dot H 36-47 / S 117-132 / V 92-103 vs table/wood H 13-21.
 Lowered the default minimum area to 300 px² and narrowed green to H 35-85,
 S >= 80 (was H 35-110, S >= 55, JetMax's green/cyan range). All dot pixels
 still pass; the live centroid moved < 1 px. Five live frames: one detection each.
+
+Workspace widening: with the dot detected, pickup reported "Outside the
+checked tabletop region" (estimate X 335, Y -6; old regions X 259-320 and a
+298-341 / -110..-9 strip). Operator: tabletop is large; only ~1 ft to the side
+risks the table. Read-only IK reach sweep from the pickup start (117 points,
+full descend/return paths): all X >= 250 pass; X 230 fails for Y -60..60
+(close to the base). Camera view from the start pose spans about X 250-485,
+Y -175..+210. Set a single region X 250-390, Y -170..180 (local, ignored);
+readiness immediately reported Ready. Not yet picked on hardware here.
