@@ -22,6 +22,7 @@ import numpy as np
 from xarm.wrapper import XArmAPI
 
 from .calibration_motion import ROOT, value
+from .suction import checked_vacuum
 
 # Commanded vs reported joints may differ by lag (report rate ~5-10 Hz at up
 # to ~20 deg/s). A larger gap means something resisted or moved the arm.
@@ -85,8 +86,22 @@ class HandServoArm:
             a.tcp_offset, self.reference["tcp_offset_mm_degrees"], atol=0.001
         ):
             raise RuntimeError("Controller TCP offset changed")
-        if value(a.get_tgpio_output_digital())[:2] != [0, 1]:
-            raise RuntimeError("Suction must be released before hand following")
+        outputs = value(a.get_tgpio_output_digital())[:2]
+        empty = value(a.get_tool_digital_input())[0] == 0
+        if outputs == [0, 0] and empty:
+            # An E-stop/reset clears both tool outputs. With nothing in the cup,
+            # re-assert the manufacturer's release state (DO0=0, DO1=1). The
+            # verified tool write needs a ready (state 2) arm, so resume a
+            # software-stopped arm first; this never clears faults.
+            if value(a.get_state()) == 5:
+                if a.set_state(0) != 0:
+                    raise RuntimeError("Controller refused ready state")
+                time.sleep(0.3)
+            if checked_vacuum(a, False, wait=False, sync=False) != 0:
+                raise RuntimeError("Could not re-assert suction release")
+            outputs = value(a.get_tgpio_output_digital())[:2]
+        if outputs != [0, 1] or not empty:
+            raise RuntimeError("Suction must be released (cup empty) before moving")
 
     def joints(self):
         return [float(x) for x in value(self.arm.get_servo_angle())[:6]]
