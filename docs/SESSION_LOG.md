@@ -335,3 +335,10 @@ controller error 2). Operator: path otherwise correct; reset the controller.
 Fix: turn now runs 60 mm above the drop (Z ~549, radius 299; +80 mm is out of
 reach), then a vertical 60 mm Cartesian set-down onto the drop, and a
 vertical lift-off before turning back. Read-only preview of all segments OK.
+
+Pick -> Shelf passed twice after the lip fix (02:12 UTC 36.0 s, 02:22 UTC
+32.9 s), release verified, back at pickup start. Operator: "it ran and it's
+awesome". The demo is one-way: the operator returns the block to the table by
+hand (the shelf spot is outside camera view and near the reach limit).
+A table pick in between aborted: alignment residual 3.27 px vs a 3 px limit
+on a 15 mm step; tolerance is now max(4 px, 15% of predicted image motion).
