@@ -433,6 +433,8 @@ async function refresh() {
         : (moving || transfer.state === "failed") && transfer.task === "pickup"
           ? transfer.message
           : data.pickup?.reason || "Pickup unavailable";
+    // Display-only listeners (viz.js, creature.js) read the same snapshot.
+    window.dispatchEvent(new CustomEvent("labdeck:status", { detail: data }));
   } catch (error) {
     recovering = true;
     $("pick-place").disabled = true;
@@ -459,6 +461,7 @@ async function refresh() {
       error: "Dashboard connection lost",
       age_seconds: null,
     });
+    window.dispatchEvent(new CustomEvent("labdeck:status", { detail: null }));
   }
 }
 // A completion-based timer prevents piling up status requests on a slow network.

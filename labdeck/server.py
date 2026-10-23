@@ -233,12 +233,28 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
                 "/": ("index.html", "text/html; charset=utf-8"),
                 "/assets/style.css": ("style.css", "text/css"),
                 "/assets/app.js": ("app.js", "text/javascript"),
+                "/assets/viz.js": ("viz.js", "text/javascript"),
+                "/assets/creature.js": ("creature.js", "text/javascript"),
             }
             if path in assets:
                 filename, content_type = assets[path]
                 self.send_body(
                     200, (ROOT / "assets" / filename).read_bytes(), content_type
                 )
+            elif path == "/api/workspace":
+                # Read-only geometry for the dashboard map (robot millimeters).
+                # Display only: nothing here is accepted back as a target.
+                layout = {"regions": [], "shelf_drop_xy": None}
+                try:
+                    layout["regions"] = load_profile().get("xy_regions_mm", [])
+                except (OSError, ValueError, KeyError):
+                    pass
+                try:
+                    shelf = json.loads((ROOT / "local/shelf-place.json").read_text())
+                    layout["shelf_drop_xy"] = shelf["drop_pose"][:2]
+                except (OSError, ValueError, KeyError):
+                    pass
+                self.send_json(200, layout)
             elif path == "/api/calibration":
                 # Read-only teaching data. A recorded fit is NOT a live motion
                 # authorization; the standalone controller rechecks all context.
