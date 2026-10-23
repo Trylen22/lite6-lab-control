@@ -44,14 +44,43 @@ GAIN_PER_S = 1.5  # Fraction of remaining error closed per second.
 DEAD_ZONE_PX = 12
 RESUME_ZONE_PX = 18
 IMAGE_CENTER = np.array([320.0, 200.0])
+# One-hand lock: once a hand is tracked, only a hand within LOCK_GATE_PX of
+# its last position counts, so a second hand (e.g. holding a phone to record)
+# is ignored. The lock lapses after LOCK_TIMEOUT_S without seeing that hand.
+LOCK_GATE_PX = 150
+LOCK_TIMEOUT_S = 1.0
 AXES = [3, 4]
 
 
-def classify_hand(snapshot, profile, now=None):
-    """Return ("open", center, seq), ("fist", None, seq) or ("none", reason, seq)."""
+def palm_width(hand):
+    points = hand["landmarks"]
+    return float(np.hypot(*(np.subtract(points[5], points[17]))))
+
+
+def select_hand(hands, near=None):
+    """Pick the tracked hand: nearest to `near` (within the gate) if locked,
+    otherwise the largest (usually the hand closest to the camera)."""
+    if near is None:
+        return max(hands, key=palm_width)
+
+    def distance(hand):
+        return float(np.linalg.norm(np.subtract(hand["center"], near)))
+
+    closest = min(hands, key=distance)
+    return closest if distance(closest) <= LOCK_GATE_PX else None
+
+
+def classify_hand(snapshot, profile, now=None, near=None):
+    """Classify the tracked hand.
+
+    Returns (kind, data, seq, tracked_center): ("open", center, ...),
+    ("fist", center, ...) or ("none", reason, ...). tracked_center is the
+    selected hand's center (None when no hand was selected); other hands
+    in the image are ignored.
+    """
     now = time.monotonic() if now is None else now
     if snapshot["settings"]["mode"] != "hands":
-        return "none", "Select Hand puppy mode", None
+        return "none", "Select Hand puppy mode", None, None
     source = snapshot.get("source", {})
     sequence = source.get("sequence")
     if (
@@ -59,22 +88,22 @@ def classify_hand(snapshot, profile, now=None):
         or snapshot.get("resolution") != profile["resolution"]
         or not 0 <= now - source.get("received_monotonic", 0) <= MAX_FRAME_AGE
     ):
-        return "none", "Camera frame stale", sequence
-    hands = snapshot["detections"]
+        return "none", "Camera frame stale", sequence, None
+    hands = [
+        hand
+        for hand in snapshot["detections"]
+        if np.shape(hand.get("landmarks")) == (21, 2)
+        and np.shape(hand.get("center")) == (2,)
+        and np.isfinite(hand["landmarks"]).all()
+        and np.isfinite(hand["center"]).all()
+    ]
     if not hands:
-        return "none", "No hand in view", sequence
-    if len(hands) > 1:
-        return "none", "Two hands in view; show one", sequence
-    hand = hands[0]
+        return "none", "No hand in view", sequence, None
+    hand = select_hand(hands, near)
+    if hand is None:
+        return "none", "Tracked hand left the view", sequence, None
     points = np.array(hand["landmarks"], dtype=float)
     center = np.array(hand["center"], dtype=float)
-    if (
-        points.shape != (21, 2)
-        or center.shape != (2,)
-        or not np.isfinite(points).all()
-        or not np.isfinite(center).all()
-    ):
-        return "none", "Invalid hand landmarks", sequence
     # Finger straightness from landmarks: cosine of the knuckle-PIP-tip angle.
     # Straight ~ -1, folded back ~ +1. MediaPipe's gesture label alone often
     # says "None" for a perfectly open hand, so geometry decides too.
@@ -86,15 +115,19 @@ def classify_hand(snapshot, profile, now=None):
         bends.append(1.0 if norms < 1e-6 else float(np.dot(first, second) / norms))
     gesture, score = hand.get("gesture"), hand.get("confidence", 0)
     if (gesture == "Closed_Fist" and score >= 0.5) or min(bends) > 0:
-        return "fist", None, sequence
-    palm_width = np.linalg.norm(points[5] - points[17])
-    if palm_width < 15:
-        return "none", "Hand too far away", sequence
+        return "fist", center, sequence, center
+    if palm_width(hand) < 15:
+        return "none", "Hand too far away", sequence, center
     if not (0 <= center[0] < 640 and 0 <= center[1] < 400):
-        return "none", "Palm left the image", sequence
+        return "none", "Palm left the image", sequence, center
     if (gesture == "Open_Palm" and score >= 0.5) or max(bends) < -0.6:
-        return "open", center, sequence
-    return "none", "Open your hand to follow, close it to send home", sequence
+        return "open", center, sequence, center
+    return (
+        "none",
+        "Open your hand to follow, close it to send home",
+        sequence,
+        center,
+    )
 
 
 class FollowPolicy:
@@ -112,11 +145,19 @@ class FollowPolicy:
         self.stable = 0
         self.centered = True
         self.lost_since = None
+        self.lock_center = None
+        self.lock_time = None
         self.message = "Show an open palm"
 
     def observe(self, snapshot, now=None):
         now = time.monotonic() if now is None else now
-        kind, data, sequence = classify_hand(snapshot, self.profile, now)
+        if self.lock_time is not None and now - self.lock_time > LOCK_TIMEOUT_S:
+            self.lock_center = self.lock_time = None
+        kind, data, sequence, tracked = classify_hand(
+            snapshot, self.profile, now, near=self.lock_center
+        )
+        if tracked is not None:
+            self.lock_center, self.lock_time = tracked, now
         if kind == "open":
             if sequence != self.sequence:
                 self.sequence = sequence
@@ -240,7 +281,7 @@ class HandFollower:
             if values["state"] not in (2, 5):
                 return False, f"Robot state {values['state']}; must be idle or stopped"
             self.check_anchor(values["joints"], profile)
-            kind, _, _ = classify_hand(self.vision.snapshot(), profile)
+            kind = classify_hand(self.vision.snapshot(), profile)[0]
             return True, (
                 "Open palm in view · start following"
                 if kind == "open"

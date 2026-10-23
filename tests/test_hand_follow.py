@@ -11,7 +11,12 @@ from unittest.mock import patch
 import numpy as np
 
 from labdeck import hand_follow
-from labdeck.hand_follow import FollowPolicy, HandFollower, classify_hand
+from labdeck.hand_follow import (
+    LOCK_TIMEOUT_S,
+    FollowPolicy,
+    HandFollower,
+    classify_hand,
+)
 from test_pickup_jobs import profile_fixture
 
 HOME = [0, -10, 45, -60, -60, 60]
@@ -76,10 +81,54 @@ class ClassifyTests(unittest.TestCase):
         lost["detections"] = []
         stale = frame()
         stale["source"]["received_monotonic"] -= 1
-        double = frame()
-        double["detections"] *= 2
-        for sample in [lost, stale, double]:
+        for sample in [lost, stale]:
             self.assertEqual(classify_hand(sample, profile)[0], "none")
+
+
+def two_hands(tracked, other, sequence=1, other_gesture="Closed_Fist", scale=1.0):
+    sample = frame(tracked, sequence)
+    extra = frame(other, sequence, gesture=other_gesture)["detections"][0]
+    # Scale the second hand's landmarks about its center (apparent size).
+    extra["landmarks"] = [
+        [other[0] + scale * (x - other[0]), other[1] + scale * (y - other[1])]
+        for x, y in extra["landmarks"]
+    ]
+    sample["detections"].append(extra)
+    return sample
+
+
+class HandLockTests(unittest.TestCase):
+    def test_unlocked_picks_largest_hand(self):
+        profile = hand_profile()
+        sample = two_hands((220, 200), (500, 300), other_gesture="Open_Palm", scale=2)
+        kind, center, _, _ = classify_hand(sample, profile)
+        self.assertEqual((kind, list(center)), ("open", [500, 300]))
+
+    def test_second_hand_fist_is_ignored_while_locked(self):
+        policy = FollowPolicy(hand_profile(), HOME)
+        for seq in range(1, 4):
+            policy.observe(frame((220, 200), seq))
+        for seq in range(4, 40):
+            # A bigger second hand making a fist never steals or homes the arm.
+            policy.observe(two_hands((220, 200), (520, 320), seq, scale=2))
+            policy.step()
+        self.assertEqual(policy.mode, "follow")
+        self.assertLess(np.linalg.norm(policy.lock_center - [220, 200]), 1)
+
+    def test_lock_does_not_jump_to_other_hand_then_lapses(self):
+        policy = FollowPolicy(hand_profile(), HOME)
+        base = time.monotonic()
+
+        def at(sample, offset):
+            sample["source"]["received_monotonic"] = base + offset
+            return policy.observe(sample, now=base + offset)
+
+        at(frame((220, 200), 1), 0)
+        at(frame((220, 200), 2), 0.1)
+        self.assertIn("Tracked hand left", at(frame((520, 320), 3), 0.2))
+        self.assertEqual(policy.mode, "hold")
+        at(frame((520, 320), 4), 0.3 + LOCK_TIMEOUT_S)
+        self.assertLess(np.linalg.norm(policy.lock_center - [520, 320]), 1)
 
 
 class FollowPolicyTests(unittest.TestCase):
@@ -129,7 +178,7 @@ class FollowPolicyTests(unittest.TestCase):
     def test_fist_returns_home_and_lost_hand_holds_then_homes(self):
         self.run_ticks(self.policy, frame((100, 80)), 100)
         self.assertNotEqual(self.policy.command.tolist(), HOME)
-        self.run_ticks(self.policy, frame(gesture="Closed_Fist"), 600)
+        self.run_ticks(self.policy, frame((100, 80), gesture="Closed_Fist"), 600)
         self.assertTrue(self.policy.at_home())
         self.assertEqual(self.policy.mode, "home")
         moved = self.run_ticks(self.policy, frame((100, 80)), 100)
