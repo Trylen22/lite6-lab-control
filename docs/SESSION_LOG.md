@@ -267,3 +267,12 @@ step about 0.30003° including encoder/rounding differences. Operator reported
 behavior. This is evidence for a wrist prototype, not completion of the full
 puppy-demo objective. Next work: continuous control and base participation,
 with a separate checked envelope and explicit controller-mode handoff if needed.
+
+2026-10-22 evening (Claude Code): operator asked for real following with fist
+pause and return to the ready pose, and called the prior limits overly
+conservative. Committed Codex's palm/smoothing changes (c30d734). Rewrote the
+follower as a 50 Hz servo-mode velocity loop on J4/J5 using the existing image
+Jacobian; removed the 2 h expiry and the 90 s cap. Tests include a simulated
+closed loop with 5-tick camera lag converging within 20 px. Restarted the
+dashboard (camera producer reused); readiness reported Ready at state 5.
+Not yet run on hardware at the time of this entry.

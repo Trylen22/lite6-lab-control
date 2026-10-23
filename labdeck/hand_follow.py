@@ -1,9 +1,20 @@
-"""Explicit, leased, fixed-wrist visual hand following.
+"""Explicit, leased hand-puppy following on wrist joints 4 and 5.
 
-No suction, wrist rotation, enabling, fault resets or queued trajectory.
-The separately measured scene response supplies a centering direction: a hand
-at another depth has a different metric scale. Small capped corrections, fresh
-frames and a bounded wrist range limit the experiment; this is not 3D hand tracking.
+Behavior (the operator starts it from the deck):
+  open palm  -> the wrist turns so the palm moves toward the image center
+  fist       -> pause and glide back to the ready pose, wait there
+  no hand    -> hold still; after LOST_HOME_SECONDS glide back to ready
+  Stop / page closed / heartbeat lost -> glide back to ready, then position mode
+
+The "ready pose" is the joint pose when Start is pressed. Only joints 4 and 5
+ever change; base, shoulder, elbow and wrist roll are held exactly.
+
+Control: a velocity loop. The measured image Jacobian (pixels per degree of
+J4/J5, from hand_calibrate.py) converts the palm's pixel error into a joint
+velocity, which is rate- and acceleration-limited and integrated at 50 Hz into
+servo-mode targets (hand_servo.py). The Jacobian is local and gives direction
+and gain, not hand depth; closing the loop on fresh frames corrects for that.
+No suction, fault resets, or Cartesian IK are involved.
 """
 
 from datetime import datetime, timezone
@@ -13,130 +24,173 @@ import uuid
 
 import numpy as np
 
-from .hand_space import load_hand_profile, check_hand_pose, check_hand_transit
+from .hand_space import load_hand_profile
 from .calibration_motion import ROOT
-from .hand_motion import HandWristArm
+from .hand_servo import HandServoArm
 from .green_calibrate import save
 
+TICK_SECONDS = 0.02  # 50 Hz servo stream
 MAX_FRAME_AGE = 0.4
 HEARTBEAT_TIMEOUT = 1.5
-MAX_SESSION_SECONDS = 90
-MAX_RADIUS_DEGREES = 6
-MAX_STEP_DEGREES = 0.3
-FOLLOW_SPEED_DEG_S = 2
+LOST_HOME_SECONDS = 3.0
+# Travel allowed from the ready pose for J4, J5 (degrees).
+FOLLOW_RANGE_DEG = np.array([30.0, 25.0])
+# A start pose this far from the calibrated anchor makes the Jacobian unreliable.
+MAX_ANCHOR_DRIFT_DEG = 15
+MAX_SPEED_DEG_S = 20
+MAX_ACCEL_DEG_S2 = 80
+HOME_SPEED_DEG_S = 12
+GAIN_PER_S = 1.5  # Fraction of remaining error closed per second.
 DEAD_ZONE_PX = 12
 RESUME_ZONE_PX = 18
+IMAGE_CENTER = np.array([320.0, 200.0])
+AXES = [3, 4]
 
 
-def hand_target(snapshot, profile, now=None):
-    """Return one fresh open palm; uncertainty never supplies a motion target."""
+def classify_hand(snapshot, profile, now=None):
+    """Return ("open", center, seq), ("fist", None, seq) or ("none", reason, seq)."""
     now = time.monotonic() if now is None else now
     if snapshot["settings"]["mode"] != "hands":
-        raise RuntimeError("Select Hand puppy mode")
+        return "none", "Select Hand puppy mode", None
     source = snapshot.get("source", {})
+    sequence = source.get("sequence")
     if (
         not snapshot.get("fresh")
-        or source.get("session") != profile["camera_session"]
         or snapshot.get("resolution") != profile["resolution"]
         or not 0 <= now - source.get("received_monotonic", 0) <= MAX_FRAME_AGE
     ):
-        raise RuntimeError("Hand frame stale or camera session changed")
+        return "none", "Camera frame stale", sequence
     hands = snapshot["detections"]
-    if len(hands) != 1:
-        raise RuntimeError("Show exactly one open palm")
+    if not hands:
+        return "none", "No hand in view", sequence
+    if len(hands) > 1:
+        return "none", "Two hands in view; show one", sequence
     hand = hands[0]
-    # "None" is a gesture-category score, not low hand-presence confidence.
-    # The detector already enforces landmark presence/tracking >=0.65. Let
-    # four clearly extended fingers establish openness even if its canned
-    # classifier has no label. A confident fist still pauses immediately.
-    if hand.get("gesture") == "Closed_Fist" and hand.get("confidence", 0) >= 0.5:
-        raise RuntimeError("Fist pauses following; show an open palm")
-    center = np.array(hand["center"], dtype=float)
     points = np.array(hand["landmarks"], dtype=float)
+    center = np.array(hand["center"], dtype=float)
     if (
-        center.shape != (2,)
-        or points.shape != (21, 2)
+        points.shape != (21, 2)
+        or center.shape != (2,)
         or not np.isfinite(points).all()
         or not np.isfinite(center).all()
     ):
-        raise RuntimeError("Invalid hand landmarks")
-    # A canned gesture score is not a calibrated probability. Combine the
-    # Open_Palm class with explicit four-finger geometry rather than treating a
-    # high arbitrary classifier cutoff as proof of an open hand.
+        return "none", "Invalid hand landmarks", sequence
+    # Finger straightness from landmarks: cosine of the knuckle-PIP-tip angle.
+    # Straight ~ -1, folded back ~ +1. MediaPipe's gesture label alone often
+    # says "None" for a perfectly open hand, so geometry decides too.
+    bends = []
     for knuckle, pip, tip in [(5, 6, 8), (9, 10, 12), (13, 14, 16), (17, 18, 20)]:
         first = points[knuckle] - points[pip]
         second = points[tip] - points[pip]
         norms = np.linalg.norm(first) * np.linalg.norm(second)
-        if norms < 1e-6 or np.dot(first, second) / norms > -0.75:
-            raise RuntimeError(
-                "Straighten all four fingers with palm facing the camera"
-            )
-    # Apparent size/edge rejection is NOT measured separation from the tool.
-    # Keep the complete hand visible and away from the physical arm.
-    if np.any(points < 4) or np.any(points > np.array([636, 396])):
-        raise RuntimeError("Keep your whole hand visible inside the image")
+        bends.append(1.0 if norms < 1e-6 else float(np.dot(first, second) / norms))
+    gesture, score = hand.get("gesture"), hand.get("confidence", 0)
+    if (gesture == "Closed_Fist" and score >= 0.5) or min(bends) > 0:
+        return "fist", None, sequence
     palm_width = np.linalg.norm(points[5] - points[17])
-    if not 25 <= palm_width <= 170:
-        raise RuntimeError("Hand scale outside the demo range")
-    return center, source["sequence"]
+    if palm_width < 15:
+        return "none", "Hand too far away", sequence
+    if not (0 <= center[0] < 640 and 0 <= center[1] < 400):
+        return "none", "Palm left the image", sequence
+    if (gesture == "Open_Palm" and score >= 0.5) or max(bends) < -0.6:
+        return "open", center, sequence
+    return "none", "Open your hand to follow, close it to send home", sequence
 
 
 class FollowPolicy:
-    """Smoothing/dead zone and a per-session radius, independent of SDK calls."""
+    """Pure velocity controller: observe() frames, step() 50 Hz joint targets."""
 
-    def __init__(self, profile, origin):
+    def __init__(self, profile, home):
+        self.home = np.array(home[:6], dtype=float)
+        self.command = self.home.copy()
+        self.velocity = np.zeros(2)
+        self.jinv = np.linalg.inv(np.array(profile["jacobian_px_per_degree"]))
         self.profile = profile
-        self.origin = np.array(origin)[profile["joint_axes"]]
+        self.mode = "hold"  # hold | follow | home
         self.filtered = None
         self.sequence = None
         self.stable = 0
         self.centered = True
+        self.lost_since = None
+        self.message = "Show an open palm"
 
-    def reset(self):
-        self.filtered = None
-        self.stable = 0
-        self.centered = True
+    def observe(self, snapshot, now=None):
+        now = time.monotonic() if now is None else now
+        kind, data, sequence = classify_hand(snapshot, self.profile, now)
+        if kind == "open":
+            if sequence != self.sequence:
+                self.sequence = sequence
+                self.stable += 1
+                self.filtered = (
+                    data if self.filtered is None else 0.5 * data + 0.5 * self.filtered
+                )
+            self.lost_since = None
+            if self.stable >= 2:
+                self.mode = "follow"
+                self.message = "Following your open palm"
+            else:
+                self.mode = "hold"
+                self.message = "Palm found · confirming"
+            return self.message
+        self.filtered, self.stable, self.centered = None, 0, True
+        if kind == "fist":
+            self.mode, self.lost_since = "home", None
+            self.message = "Fist · paused at ready pose"
+            return self.message
+        if self.mode != "home":
+            self.lost_since = self.lost_since or now
+            if now - self.lost_since >= LOST_HOME_SECONDS:
+                self.mode = "home"
+            else:
+                self.mode = "hold"
+        self.message = data if self.mode == "hold" else f"{data} · back at ready pose"
+        return self.message
 
-    def target(self, snapshot, pose, now=None):
-        try:
-            center, sequence = hand_target(snapshot, self.profile, now)
-        except RuntimeError:
-            self.reset()
-            raise
-        if self.sequence is not None and sequence <= self.sequence:
-            raise RuntimeError("Waiting for a new hand frame")
-        self.sequence = sequence
-        self.stable += 1
-        self.filtered = (
-            center if self.filtered is None else 0.3 * center + 0.7 * self.filtered
-        )
-        check_hand_pose(pose, self.profile)
-        if self.stable < 3:
-            return None, "Confirming three fresh open-palm frames"
-        error = np.array([320, 200]) - self.filtered
-        distance = float(np.linalg.norm(error))
-        if distance <= DEAD_ZONE_PX or (self.centered and distance <= RESUME_ZONE_PX):
-            self.centered = True
-            return None, "Palm centered · holding still"
-        self.centered = False
-        # Soft dead zone decelerates near center; hysteresis avoids repeatedly
-        # reversing on a noisy boundary. Physical step/speed caps stay intact.
-        error *= max(0, 1 - DEAD_ZONE_PX / distance)
-        delta = 0.12 * np.linalg.solve(self.profile["jacobian_px_per_degree"], error)
-        if np.linalg.norm(delta) > MAX_STEP_DEGREES:
-            delta *= MAX_STEP_DEGREES / np.linalg.norm(delta)
-        target = pose.copy()
-        axes = self.profile["joint_axes"]
-        for index, axis in enumerate(axes):
-            target[axis] += float(delta[index])
-        if np.linalg.norm(np.array(target)[axes] - self.origin) > MAX_RADIUS_DEGREES:
-            raise RuntimeError("Session travel boundary reached; stop and recenter")
-        check_hand_transit(pose, target, self.profile)
-        return target, "Following your open palm"
+    def desired_velocity(self):
+        if self.mode == "follow":
+            error = IMAGE_CENTER - self.filtered
+            distance = float(np.linalg.norm(error))
+            if distance <= DEAD_ZONE_PX or (
+                self.centered and distance <= RESUME_ZONE_PX
+            ):
+                self.centered = True
+                return np.zeros(2)
+            self.centered = False
+            # Soft dead zone: speed ramps from zero at the dead-zone edge.
+            error = error * (1 - DEAD_ZONE_PX / distance)
+            velocity = GAIN_PER_S * (self.jinv @ error)
+            limit = MAX_SPEED_DEG_S
+        elif self.mode == "home":
+            velocity = 2.0 * (self.home[AXES] - self.command[AXES])
+            limit = HOME_SPEED_DEG_S
+        else:
+            return np.zeros(2)
+        speed = np.linalg.norm(velocity)
+        return velocity * (limit / speed) if speed > limit else velocity
+
+    def step(self, dt=TICK_SECONDS):
+        wanted = self.desired_velocity()
+        change = wanted - self.velocity
+        max_change = MAX_ACCEL_DEG_S2 * dt
+        if np.linalg.norm(change) > max_change:
+            change *= max_change / np.linalg.norm(change)
+        self.velocity = self.velocity + change
+        joints = self.command[AXES] + self.velocity * dt
+        low = self.home[AXES] - FOLLOW_RANGE_DEG
+        high = self.home[AXES] + FOLLOW_RANGE_DEG
+        clipped = np.clip(joints, low, high)
+        self.velocity[clipped != joints] = 0  # Stop pushing into the range edge.
+        if self.mode == "home" and np.all(np.abs(clipped - self.home[AXES]) < 0.05):
+            clipped, self.velocity = self.home[AXES].copy(), np.zeros(2)
+        self.command[AXES] = clipped
+        return self.command.tolist()
+
+    def at_home(self):
+        return bool(np.all(self.command == self.home)) and not self.velocity.any()
 
 
 class HandFollower:
-    def __init__(self, vision, profile_path=None, robot_factory=HandWristArm):
+    def __init__(self, vision, profile_path=None, robot_factory=HandServoArm):
         self.vision = vision
         self.profile_path = profile_path
         self.robot_factory = robot_factory
@@ -165,27 +219,38 @@ class HandFollower:
         with self.lock:
             return self.data.copy()
 
+    @staticmethod
+    def check_anchor(joints, profile):
+        drift = np.abs(np.array(joints[:6]) - np.array(profile["anchor_joints_deg"]))
+        if np.max(drift) > MAX_ANCHOR_DRIFT_DEG:
+            raise RuntimeError(
+                "Arm is far from the calibrated hand-demo pose; recalibrate"
+            )
+
     def readiness(self, robot):
-        recognized = False
         try:
             profile = self.profile()
-            hand_target(self.vision.snapshot(), profile)
-            recognized = True
+            if self.vision.snapshot()["settings"]["mode"] != "hands":
+                return False, "Select Hand puppy mode"
             if not robot.get("fresh"):
-                return False, "Palm recognized · robot telemetry unavailable"
-            if robot["values"]["state"] != 2 or robot["values"]["errors"] != [0, 0]:
-                return (
-                    False,
-                    f"Palm recognized · robot state {robot['values']['state']}; normal idle required",
-                )
-            check_hand_pose(robot["values"]["joints"][:6], profile)
-            return True, "Open palm recognized · start following"
+                return False, "Robot telemetry unavailable"
+            values = robot["values"]
+            if values["errors"] != [0, 0]:
+                return False, "Controller reports an error; clear it first"
+            if values["state"] not in (2, 5):
+                return False, f"Robot state {values['state']}; must be idle or stopped"
+            self.check_anchor(values["joints"], profile)
+            kind, _, _ = classify_hand(self.vision.snapshot(), profile)
+            return True, (
+                "Open palm in view · start following"
+                if kind == "open"
+                else "Ready · start, then show an open palm"
+            )
         except (ValueError, RuntimeError, KeyError, OSError, TypeError) as exc:
-            return False, ("Palm recognized · " if recognized else "") + str(exc)
+            return False, str(exc)
 
     def start(self):
         profile = self.profile()
-        hand_target(self.vision.snapshot(), profile)
         with self.lock:
             if self.data["state"] == "running":
                 raise RuntimeError("Following already active")
@@ -194,7 +259,7 @@ class HandFollower:
             self.heartbeat_time = time.monotonic()
             self.data = {
                 "state": "running",
-                "message": "Checking hand and robot",
+                "message": "Connecting to the arm",
                 "token": self.token,
                 "started_utc": datetime.now(timezone.utc).isoformat(),
             }
@@ -212,8 +277,7 @@ class HandFollower:
         return self.snapshot()
 
     def stop(self):
-        # There is at most one <=0.3 degree turn in flight; stopping prevents the next.
-        # This is not a physical emergency stop and sends no mode/state change.
+        # Software stop: the arm glides back to the ready pose. Not an E-stop.
         self.stop_event.set()
         return self.snapshot()
 
@@ -222,14 +286,17 @@ class HandFollower:
         if self.worker:
             self.worker.join()
 
+    def _set_message(self, message):
+        with self.lock:
+            self.data["message"] = message
+
     def _run(self, profile):
         record = {
             "started_utc": datetime.now(timezone.utc).isoformat(),
-            "events": [],
+            "samples": [],
             "profile_id": profile["profile_id"],
-            "camera_session": profile["camera_session"],
-            "motion_kind": "wrist_joint_follow",
-            "joint_axes": [3, 4],
+            "motion_kind": "wrist_servo_follow",
+            "joint_axes": AXES,
             "units": "degrees",
         }
         path = (
@@ -237,84 +304,55 @@ class HandFollower:
             / "local/trial_logs"
             / datetime.now(timezone.utc).strftime("hand-follow-%Y%m%dT%H%M%S.json")
         )
-        started = time.monotonic()
+        reason = "Stopped"
         try:
             with self.robot_factory() as robot:
-                origin = robot.check()
-                check_hand_pose(origin, profile)
-                policy = FollowPolicy(profile, origin)
-                record["origin"] = origin
-                expected_pose = origin.copy()
-                while not self.stop_event.is_set():
+                home = robot.joints()
+                self.check_anchor(home, profile)
+                policy = FollowPolicy(profile, home)
+                for corner in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                    test = np.array(home, dtype=float)
+                    test[AXES] += np.array(corner) * FOLLOW_RANGE_DEG
+                    if not robot.within_limits(test.tolist()):
+                        raise RuntimeError("Follow range reaches a joint limit")
+                record["home"] = home
+                robot.begin()
+                tick = 0
+                next_time = time.monotonic()
+                while True:
                     now = time.monotonic()
                     with self.lock:
                         last_heartbeat = self.heartbeat_time
+                    if self.stop_event.is_set():
+                        break
                     if now - last_heartbeat > HEARTBEAT_TIMEOUT:
-                        raise RuntimeError("Browser heartbeat lost; following ended")
-                    if now - started > MAX_SESSION_SECONDS:
-                        raise RuntimeError(
-                            "90-second demo finished; start a new session"
-                        )
-                    if datetime.now(timezone.utc) >= datetime.fromisoformat(
-                        profile["expires_utc"]
-                    ):
-                        raise RuntimeError("Calibration session expired")
-                    pose = robot.check()
-                    check_hand_pose(pose, profile)
-                    if not np.allclose(pose, expected_pose, atol=0.3, rtol=0):
-                        raise RuntimeError(
-                            "Arm moved outside the follow controller; session ended"
-                        )
-                    try:
-                        target, message = policy.target(self.vision.snapshot(), pose)
-                    except RuntimeError as exc:
-                        # Lost/non-open hand pauses and resets stability. Bounds
-                        # also pause rather than driving along a clipped edge.
-                        target, message = None, str(exc)
-                    with self.lock:
-                        self.data["message"] = message
-                    if target is not None:
-                        # IK can take time. Re-read intent and a *current* frame
-                        # immediately before sending the short move.
-                        robot.preview(target)
-                        hand_target(self.vision.snapshot(), profile)
-                        if (
-                            self.stop_event.is_set()
-                            or time.monotonic() - self.heartbeat_time
-                            > HEARTBEAT_TIMEOUT
-                        ):
-                            break
-
-                        def authorize():
-                            hand_target(self.vision.snapshot(), profile)
-                            if (
-                                self.stop_event.is_set()
-                                or time.monotonic() - self.heartbeat_time
-                                > HEARTBEAT_TIMEOUT
-                            ):
-                                raise RuntimeError(
-                                    "Follow intent ended before movement"
-                                )
-
-                        robot.move(
-                            target, speed=FOLLOW_SPEED_DEG_S, authorize=authorize
-                        )
-                        expected_pose = robot.check()
-                        record["events"].append(
+                        reason = "Browser heartbeat lost"
+                        break
+                    self._set_message(policy.observe(self.vision.snapshot()))
+                    robot.servo(policy.step())
+                    if tick % 25 == 0:
+                        record["samples"].append(
                             {
-                                "event": "follow_move",
-                                "target": target,
-                                "elapsed_seconds": time.monotonic() - started,
+                                "t": round(now, 3),
+                                "mode": policy.mode,
+                                "joints": [round(x, 3) for x in policy.command[AXES]],
                             }
                         )
-                        save(path, record)
-                    self.stop_event.wait(0.04)
-                record["final_pose"] = robot.check()
-            record["result"] = "stopped_no_automatic_return"
+                    tick += 1
+                    next_time += TICK_SECONDS
+                    time.sleep(max(0, next_time - time.monotonic()))
+                # Orderly finish: glide back to the ready pose.
+                self._set_message(f"{reason} · returning to ready pose")
+                policy.mode = "home"
+                deadline = time.monotonic() + 10
+                while not policy.at_home() and time.monotonic() < deadline:
+                    robot.servo(policy.step())
+                    time.sleep(TICK_SECONDS)
+                record["final_joints"] = robot.joints()
+            record["result"] = "returned_to_ready"
             with self.lock:
                 self.data.update(
-                    state="stopped",
-                    message="Following stopped · arm holds its current position",
+                    state="stopped", message=f"{reason} · arm at ready pose"
                 )
         except BaseException as exc:
             record.update(result="ended_no_recovery", error=str(exc))

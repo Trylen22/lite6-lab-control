@@ -71,14 +71,14 @@ The local profile selects that rate; old profiles retain legacy speed. Trial
 total 47.52 s (near-aligned start). Do not apply this rate to loaded/contact
 motion or raise the 20 mm/s cap without a concrete new speed-tuning request.
 
-Hand puppy work is authorized. The operator selected a forward-facing pose and
-explicitly authorized resuming stopped state 5 at that pose; the one ready-state
-transition completed without motion. Do not repeat it automatically. The first
-hand demo now uses wrist joints 4/5, not the failed tiny-translation prototype.
-Only these joints may change, at <=0.3° follow steps and <=2°/s, within the
-validated ±5° anchor bounds. Base/shoulder/wrist-roll remain fixed; suction is
-released. The independent `local/hand-follow.json` must stay ignored. The
-operator starts following explicitly; a browser heartbeat, fresh open-palm
-frames, geometry/range/SDK checks and stop controls govern each turn. Do not
-restart the dashboard during an active follow session. Display/model input may
-be upright, but published controller landmarks remain native sensor pixels.
+Hand puppy work is authorized. On 2026-10-22 the operator replaced the
+wrist-step prototype ("choppy/minimal") with continuous following: xArm servo
+mode (mode 1) streams J4/J5 targets at 50 Hz, <=20 deg/s, <=80 deg/s^2, within
++-30/+-25 deg of the pose at Start (hand_servo.py, hand_follow.py). Open palm
+follows, fist glides back to that ready pose, no hand holds then homes after
+3 s, Stop/heartbeat loss homes and restores position mode + ready state.
+Start may resume a software-stopped arm (state 5); it never clears faults.
+The hand calibration no longer expires (camera-mount geometry, not time);
+start is refused >15 deg from the calibrated anchor. Base/shoulder/elbow/roll
+stay fixed and suction stays released. `local/hand-follow.json` stays ignored.
+Do not restart the dashboard during an active follow session.

@@ -1,8 +1,11 @@
-"""Independent, expiring wrist-joint calibration for the puppy demo."""
+"""Wrist-joint calibration for the puppy demo.
+
+The image Jacobian depends on how the camera is mounted, not on the clock, so
+it does not expire. Recalibrate if the camera mount or demo pose changes.
+"""
 
 import json
 from pathlib import Path
-from datetime import datetime, timezone
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,8 +16,6 @@ def load_hand_profile(path=PROFILE):
     p = json.loads(Path(path).read_text())
     if p.get("hand_schema") != 2:
         raise ValueError("Calibrate the wrist-follow pose first")
-    if datetime.now(timezone.utc) >= datetime.fromisoformat(p["expires_utc"]):
-        raise ValueError("Hand calibration expired")
     if p["joint_axes"] != [3, 4]:
         raise ValueError("Only wrist joints 4 and 5 are allowed")
     anchor = np.array(p["anchor_joints_deg"], dtype=float)

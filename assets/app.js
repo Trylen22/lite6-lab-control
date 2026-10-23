@@ -161,7 +161,7 @@ function setModePresentation(mode) {
       "A local model finds finger joints and a palm center.";
     $("step-three-title").textContent = "Recognize the gesture";
     $("step-three-body").textContent =
-      "Open palm follows; a fist or missing hand pauses commands.";
+      "Open palm follows; a fist sends the arm back to its ready pose.";
   }
   $("view-caption").textContent = maskVisible
     ? "HSV THRESHOLD MASK"
