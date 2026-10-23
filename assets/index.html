@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Lite 6 · Lab Deck</title>
-    <!-- Fonts are decoration only; system monospace takes over offline. -->
+    <title>Lite 6 lab deck</title>
+    <!-- Web fonts are decoration; system fonts take over offline. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Unbounded:wght@300;500;700&display=swap"
     />
     <link rel="stylesheet" href="/assets/style.css" />
     <script>
@@ -20,533 +20,301 @@
     </script>
     <script defer src="/assets/app.js"></script>
     <script defer src="/assets/viz.js"></script>
-    <script defer src="/assets/creature.js"></script>
+    <script defer src="/assets/tank.js"></script>
   </head>
   <body>
-    <div class="crt" aria-hidden="true"></div>
-    <div class="shell">
-      <aside class="sidebar">
-        <a class="brand" href="/">
-          <span class="brand-mark">L6</span>
-          <span class="brand-text"
-            >LITE6<i>//</i>DECK<small>robotics · vision · lab</small></span
-          >
-        </a>
-        <nav aria-label="Main navigation">
-          <button class="nav-item active" data-page="workspace">
-            <span>01</span> workspace
-          </button>
-          <button class="nav-item" data-page="robot">
-            <span>02</span> telemetry
-          </button>
-          <button class="nav-item" data-page="learn">
-            <span>03</span> learning path
-          </button>
-          <button class="nav-item" data-page="system">
-            <span>04</span> system notes
-          </button>
-        </nav>
-        <div class="sidebar-lesson">
-          <span class="eyebrow">current chapter</span>
-          <h3>observe &amp; understand</h3>
-          <p>
-            Explore the camera, follow the data, and learn how a detection
-            becomes a useful measurement.
-          </p>
-          <button data-go="learn">view the learning path ↗</button>
-        </div>
-        <div class="sidebar-bottom">
-          <button id="theme-toggle" class="theme-toggle" type="button">
-            theme: auto
-          </button>
-          <span class="estop-note"
-            ><b>!</b> physical E-stop is the only immediate stop</span
-          >
-        </div>
-      </aside>
-      <main>
-        <header class="topbar">
-          <div class="crumbs">
-            <span class="crumb">lab/lite6</span><span class="divider">/</span
-            ><span id="breadcrumb">Vision workspace</span>
+    <header class="topbar">
+      <a class="brand" href="/">Lite&nbsp;6 <span>lab deck</span></a>
+      <nav aria-label="Pages">
+        <button class="nav-item active" data-page="workspace">Workspace</button>
+        <button class="nav-item" data-page="robot">Telemetry</button>
+        <button class="nav-item" data-page="learn">Lessons</button>
+        <button class="nav-item" data-page="system">How it works</button>
+      </nav>
+      <span class="sr-only" id="breadcrumb">Vision workspace</span>
+      <button id="theme-toggle" class="theme-toggle" type="button">Theme: auto</button>
+    </header>
+
+    <main>
+      <section class="page" id="workspace">
+        <!-- The tank: the workspace seen from above, to scale. -->
+        <figure class="tank">
+          <canvas
+            id="tank"
+            role="img"
+            aria-label="Top-down map of the workspace. A shark marks the arm's tool position, fish gather on the detected block, the kelp bed is the pickup zone and the ledge on the right is the shelf."
+          ></canvas>
+          <figcaption>
+            <span id="tank-caption">Seen from above, to scale.</span>
+            <span class="caption-more">The shark is the arm's tool. Fish swarm
+            whatever the camera detects and scatter when the shark comes
+            close. The kelp bed is the pickup zone; the ledge on the right is
+            the shelf.</span>
+          </figcaption>
+        </figure>
+
+        <div class="deck">
+          <!-- Camera pixels come from our own loopback server; no cloud embed. -->
+          <div class="porthole">
+            <div class="camera-stage">
+              <img
+                id="camera-image"
+                src="/stream.mjpg"
+                alt="Live OAK camera feed with the selected vision overlay"
+              />
+              <div
+                id="cup-aim-guide"
+                hidden
+                title="Where the suction cup lands at camera height"
+              >
+                ＋ <span>cup aim</span>
+              </div>
+              <div class="camera-caption">
+                <span id="view-caption">COLOR OVERLAY</span>
+                <span class="chip" id="live-label">Connecting</span>
+              </div>
+              <div id="stale-overlay" hidden>Waiting for a fresh camera frame…</div>
+            </div>
+            <div class="vitals">
+              <div>
+                <i class="dot" id="camera-dot"></i>
+                <span>Camera</span>
+                <strong id="camera-state">Connecting</strong>
+                <small id="camera-detail">Waiting for fresh frames</small>
+              </div>
+              <div>
+                <i class="dot" id="robot-dot"></i>
+                <span>Arm</span>
+                <strong id="robot-state">Connecting</strong>
+                <small>Read-only telemetry</small>
+              </div>
+              <div>
+                <i class="dot" id="stream-dot"></i>
+                <span>Vision</span>
+                <strong id="mode-metric">Color / HSV</strong>
+                <small id="processing-detail">Laptop CPU</small>
+              </div>
+              <div>
+                <span>Found</span>
+                <strong id="candidate-count">—</strong>
+                <small><b id="fps">—</b> frames per second</small>
+              </div>
+            </div>
           </div>
-          <div class="ticker" aria-hidden="true">
-            <span id="ticker">booting telemetry…</span>
-          </div>
-        </header>
-        <div class="content">
-          <section class="page" id="workspace">
-            <div class="page-heading">
-              <h1>vision<i>//</i>workspace<span class="cursor">_</span></h1>
-              <p>
-                UFACTORY Lite 6 + Luxonis OAK-D Pro PoE · a live view of the lab,
-                with the steps behind every detection.
+
+          <aside class="helm" aria-label="Demo controls">
+            <h2>Choose a demo</h2>
+            <div class="mode-switch" role="group" aria-label="Camera mode">
+              <button data-mode="raw">Plain</button
+              ><button class="selected" data-mode="color">Color</button
+              ><button data-mode="yolo">Objects</button
+              ><button data-mode="hands">Hand puppy</button>
+            </div>
+            <p class="hint">
+              Picking Color or Hand puppy moves the arm to that demo's start
+              pose.
+            </p>
+
+            <div class="pickup-controls" id="pickup-controls">
+              <div class="gel-row">
+                <button id="pick-place" class="gel" disabled>Pick &amp; place</button>
+                <button id="pick-shelf" class="gel amber" disabled>Pick to shelf</button>
+              </div>
+              <div class="status" role="status" aria-live="polite">
+                <strong id="pickup-phase">Checking readiness</strong>
+                <span id="pickup-message">Waiting for camera and robot status.</span>
+              </div>
+              <div class="phase-viz">
+                <span class="mini-title">Where the last cycle spent its time</span>
+                <div id="phase-bar" class="phase-bar">
+                  <span class="empty">Run a cycle to see its timing.</span>
+                </div>
+              </div>
+            </div>
+
+            <div id="hand-controls" class="pickup-controls" hidden>
+              <div class="gel-row">
+                <button id="follow-start" class="gel" disabled>Start following</button>
+                <button id="follow-stop" class="gel quiet" disabled>Stop following</button>
+              </div>
+              <div class="status" role="status" aria-live="polite">
+                <strong>Hand puppy</strong>
+                <span id="follow-message">Show one open palm fully inside the image.</span>
+              </div>
+              <p class="hint">
+                An open palm leads, a fist sends the arm home, and a second
+                hand is ignored once one is tracked. Only the wrist moves.
               </p>
             </div>
-            <div class="metric-grid">
-              <article class="metric">
-                <span>camera <i class="dot" id="camera-dot"></i></span
-                ><strong id="camera-state">Connecting</strong
-                ><small id="camera-detail">Waiting for fresh frames</small>
-              </article>
-              <article class="metric">
-                <span>robot sdk <i class="dot" id="robot-dot"></i></span
-                ><strong id="robot-state">Connecting</strong
-                ><small>read-only telemetry</small>
-              </article>
-              <article class="metric">
-                <span>vision</span><strong id="mode-metric">Color / HSV</strong
-                ><small id="processing-detail">Laptop CPU · OpenCV</small>
-              </article>
-              <article class="metric">
-                <span>in view</span><strong id="candidate-count">—</strong
-                ><small>image-space candidates</small>
-              </article>
-            </div>
 
-            <div class="deck-grid">
-              <!-- Camera pixels come from our own loopback server; no cloud embed. -->
-              <article class="win camera-panel">
-                <div class="win-bar">
-                  <span>01 · live_camera.exe</span>
-                  <span class="chip" id="live-label">CONNECTING</span>
-                </div>
-                <div class="mode-tabs" role="group" aria-label="Vision mode">
-                  <button data-mode="raw">raw</button
-                  ><button class="selected" data-mode="color">
-                    color detection</button
-                  ><button data-mode="yolo">yolo <span>cpu</span></button
-                  ><button data-mode="hands">
-                    hand puppy <span>local</span>
-                  </button>
-                </div>
-                <div class="camera-stage">
-                  <img
-                    id="camera-image"
-                    src="/stream.mjpg"
-                    alt="Live OAK camera feed with selected vision overlay"
-                  />
-                  <div
-                    id="cup-aim-guide"
-                    hidden
-                    title="Placement guide at the recorded height and wrist angle"
-                  >
-                    ＋ <span>CUP AIM</span>
-                  </div>
-                  <div class="camera-caption">
-                    <span id="view-caption">COLOR OVERLAY</span
-                    ><span>640 × 400</span>
-                  </div>
-                  <div id="stale-overlay" hidden>
-                    Waiting for a fresh camera frame…
-                  </div>
-                </div>
-                <div class="camera-toolbar">
-                  <span
-                    ><span class="dot" id="stream-dot"></span>
-                    <b id="fps">—</b> <small>processed fps</small></span
-                  ><button id="mask-toggle" aria-pressed="false">
-                    ◧ Show threshold mask
-                  </button>
-                </div>
-              </article>
-
-              <div class="side-stack">
-                <article class="win control-panel">
-                  <div class="win-bar"><span>02 · control.sys</span></div>
-                  <div class="pickup-controls" id="pickup-controls">
-                    <div class="button-row">
-                      <button id="pick-place" class="pickup-button" disabled>
-                        Pick &amp; Place
-                      </button>
-                      <button
-                        id="pick-shelf"
-                        class="pickup-button alt"
-                        disabled
-                      >
-                        Pick → Shelf
-                      </button>
-                    </div>
-                    <div class="pickup-status" role="status" aria-live="polite">
-                      <strong id="pickup-phase">Checking readiness</strong>
-                      <span id="pickup-message"
-                        >Waiting for camera and robot status.</span
-                      >
-                    </div>
-                    <div class="phase-viz">
-                      <span class="eyebrow">last cycle · phase seconds</span>
-                      <div id="phase-bar" class="phase-bar">
-                        <span class="empty">no completed cycle yet</span>
-                      </div>
-                    </div>
-                    <p class="fine">
-                      One green block · lift, place back or carry to the shelf.
-                      Keep the work area clear.
-                    </p>
-                  </div>
-                  <div id="hand-controls" class="pickup-controls" hidden>
-                    <div class="button-row">
-                      <button id="follow-start" class="pickup-button" disabled>
-                        Start following
-                      </button>
-                      <button id="follow-stop" class="ghost" disabled>
-                        Stop following
-                      </button>
-                    </div>
-                    <div class="pickup-status" role="status" aria-live="polite">
-                      <strong>hand puppy · wrist following</strong>
-                      <span id="follow-message"
-                        >Show one open palm fully inside the image.</span
-                      >
-                    </div>
-                    <p class="fine">
-                      Open palm follows · fist glides home · no hand holds, then
-                      homes after 3 s · a second hand is ignored once one is
-                      tracked. Wrist joints 4/5 only, up to 20°/s within
-                      ±30°/±25° of the pose at Start.
-                    </p>
-                  </div>
-                  <div class="calibration-summary" id="calibration-summary">
-                    <span class="eyebrow">green calibration</span>
-                    <p id="calibration-detail">
-                      Waiting for the tabletop profile.
-                    </p>
-                  </div>
-                </article>
-
-                <article class="win trap-panel">
-                  <div class="win-bar">
-                    <span>03 · light_trap.ascii</span>
-                    <span class="chip subtle" id="trap-caption">idle</span>
-                  </div>
-                  <canvas
-                    id="trap"
-                    class="trap"
-                    role="img"
-                    aria-label="ASCII moths drawn toward whatever the camera detects; they scatter when the arm moves"
-                  ></canvas>
-                </article>
-              </div>
+            <div class="calibration-summary" id="calibration-summary">
+              <p id="calibration-detail">Waiting for the tabletop profile.</p>
             </div>
-
-            <div class="viz-grid">
-              <article class="win">
-                <div class="win-bar"><span>04 · joints.dat</span></div>
-                <pre id="joint-bars" class="joint-bars">awaiting telemetry…</pre>
-                <p class="fine">
-                  Degrees, observed every 3 s. Bars run from 0 toward ±180°.
-                </p>
-              </article>
-              <article class="win">
-                <div class="win-bar"><span>05 · workspace.map</span></div>
-                <svg
-                  id="ws-map"
-                  class="ws-map"
-                  viewBox="-460 -460 920 560"
-                  role="img"
-                  aria-label="Top-down map: robot base, reach circle, pickup zone, shelf drop and the tool position trail"
-                ></svg>
-                <p class="fine">
-                  Top-down, robot mm. Forward is up, the shelf side is right.
-                </p>
-              </article>
-              <article class="win">
-                <div class="win-bar"><span>06 · signal.log</span></div>
-                <div class="spark-block">
-                  <div class="spark-head">
-                    <span>processed fps</span><b id="spark-fps-value">—</b>
-                  </div>
-                  <svg id="spark-fps" class="spark" viewBox="0 0 240 48" role="img" aria-label="Processed frames per second, recent history"></svg>
-                </div>
-                <div class="spark-block">
-                  <div class="spark-head">
-                    <span>ms / frame</span><b id="spark-ms-value">—</b>
-                  </div>
-                  <svg id="spark-ms" class="spark" viewBox="0 0 240 48" role="img" aria-label="Vision processing milliseconds per frame, recent history"></svg>
-                </div>
-              </article>
-            </div>
-
-            <div class="lower-grid">
-              <article class="win settings-panel">
-                <div class="win-bar">
-                  <span>07 · tune_observation</span
-                  ><span class="chip subtle">host settings</span>
-                </div>
-                <div class="win-body">
-                  <div id="color-settings">
-                    <label
-                      >target color
-                      <select id="preset">
-                        <option value="green">Green</option>
-                        <option value="red">Red</option>
-                        <option value="blue">Blue</option>
-                        <option value="yellow">Yellow</option>
-                      </select></label
-                    ><label class="slider-label"
-                      >minimum region area
-                      <output id="area-value">300 px²</output
-                      ><input
-                        id="min-area"
-                        type="range"
-                        min="100"
-                        max="10000"
-                        step="100"
-                        value="300"
-                    /></label>
-                    <p class="helper">
-                      Raise the area threshold to reject small speckles.
-                      Lighting and similar-colored objects can still affect the
-                      result.
-                    </p>
-                    <div class="code-note" id="hsv-note">
-                      HSV ranges load with the first frame.
-                    </div>
-                  </div>
-                  <div id="yolo-settings" hidden>
-                    <label class="slider-label"
-                      >confidence threshold
-                      <output id="confidence-value">40%</output
-                      ><input
-                        id="confidence"
-                        type="range"
-                        min="10"
-                        max="95"
-                        step="5"
-                        value="40"
-                    /></label>
-                    <p class="helper">
-                      YOLOX-Nano · 416 × 416 input · 80 COCO classes, on this
-                      laptop's CPU via OpenCV DNN.
-                    </p>
-                  </div>
-                  <div id="raw-settings" hidden>
-                    <p class="helper">
-                      Raw mode shows the camera image without a detector.
-                    </p>
-                  </div>
-                  <p role="status" id="settings-message" class="helper"></p>
-                </div>
-              </article>
-              <article class="win results-panel">
-                <div class="win-bar">
-                  <span>08 · detector_sees</span
-                  ><span id="result-count" class="chip subtle">0 FOUND</span>
-                </div>
-                <div class="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>candidate</th>
-                        <th>sensor px / box</th>
-                        <th>score / area</th>
-                      </tr>
-                    </thead>
-                    <tbody id="detections"></tbody>
-                  </table>
-                  <div class="empty-state" id="empty-state">
-                    <span>⌖</span><strong>nothing in view</strong>
-                    <p>Place a colored object in view, or select YOLO.</p>
-                  </div>
-                </div>
-              </article>
-              <article class="win lesson-panel">
-                <div class="win-bar"><span>09 · pipeline.txt</span></div>
-                <div class="win-body">
-                  <p id="lesson-intro">
-                    Color detection is a sequence of small, inspectable
-                    decisions.
-                  </p>
-                  <ol class="pipeline">
-                    <li>
-                      <h3>capture a frame</h3>
-                      <p>Read a fresh color image from the OAK camera.</p>
-                    </li>
-                    <li>
-                      <h3 id="step-two-title">Select a color range</h3>
-                      <p id="step-two-body">
-                        Convert BGR to HSV, then keep matching pixels.
-                      </p>
-                    </li>
-                    <li>
-                      <h3 id="step-three-title">Find useful shapes</h3>
-                      <p id="step-three-body">
-                        Clean the mask and reject small or narrow regions.
-                      </p>
-                    </li>
-                    <li>
-                      <h3>describe the candidate</h3>
-                      <p>Show its bounding box and image measurements.</p>
-                    </li>
-                  </ol>
-                  <p class="fine">
-                    Measurements are in image pixels. The pickup controller
-                    applies the validated tabletop profile.
-                  </p>
-                </div>
-              </article>
-            </div>
-          </section>
-
-          <!-- Read-only telemetry: displayed positions are never movement targets. -->
-          <section class="page" id="robot" hidden>
-            <div class="page-heading">
-              <h1>robot<i>//</i>telemetry<span class="cursor">_</span></h1>
-              <p>Live SDK observations, refreshed every three seconds. Read only.</p>
-            </div>
-            <div class="two-columns">
-              <article class="win">
-                <div class="win-bar"><span>connection</span></div>
-                <div class="win-body">
-                  <dl id="robot-details" class="detail-list"></dl>
-                  <p class="helper">
-                    A network connection and zero error codes do not establish
-                    readiness for motion. Controller state is the raw SDK code.
-                  </p>
-                </div>
-              </article>
-              <article class="win">
-                <div class="win-bar"><span>tool center point</span></div>
-                <div class="win-body">
-                  <div id="pose-grid" class="pose-grid"></div>
-                  <p class="helper">
-                    X, Y, Z in millimeters; roll, pitch, yaw in degrees. Never
-                    used as a movement target.
-                  </p>
-                </div>
-              </article>
-            </div>
-            <article class="win joint-panel">
-              <div class="win-bar"><span>joint angles</span></div>
-              <div class="win-body">
-                <div id="joint-grid" class="joint-grid"></div>
-              </div>
-            </article>
-          </section>
-
-          <section class="page" id="learn" hidden>
-            <div class="page-heading">
-              <h1>learning<i>//</i>path<span class="cursor">_</span></h1>
-              <p>Each chapter has a clear experiment and a checkpoint.</p>
-            </div>
-            <div class="roadmap">
-              <article class="win roadmap-card">
-                <div class="win-bar"><span>chapter 01 · current</span></div>
-                <div class="win-body">
-                  <h2>Observe &amp; detect</h2>
-                  <p>
-                    Trace a frame from the OAK camera through OpenCV color
-                    thresholds or local YOLO. Read robot status without sending
-                    movement commands.
-                  </p>
-                  <ul>
-                    <li>Compare raw, threshold mask, and annotated images.</li>
-                    <li>Explain a centroid, a confidence score, and a false positive.</li>
-                    <li>Verify stale frames never appear as fresh detections.</li>
-                  </ul>
-                  <code>labdeck/color.py · yolo.py · robot.py</code>
-                </div>
-              </article>
-              <article class="win roadmap-card">
-                <div class="win-bar"><span>chapter 02 · measure</span></div>
-                <div class="win-body">
-                  <h2>Measure &amp; calibrate</h2>
-                  <p>
-                    Confirm the camera mounting and tool geometry. Measure
-                    pixel, camera, and robot coordinate frames with known
-                    reference points.
-                  </p>
-                  <ul>
-                    <li>Record camera intrinsics and the camera-to-robot transform.</li>
-                    <li>Measure error on reference points excluded from calibration.</li>
-                  </ul>
-                  <code>Checkpoint: validated measurements, documented uncertainty.</code>
-                </div>
-              </article>
-              <article class="win roadmap-card">
-                <div class="win-bar"><span>chapter 03 · motion</span></div>
-                <div class="win-body">
-                  <h2>Teach controlled motion</h2>
-                  <p>
-                    Verify mounting, emergency stop, tool/payload, clear
-                    workspace, speed limits, and explicit operator authorization
-                    before introducing movement.
-                  </p>
-                  <code>Checkpoint: supervised motion validation.</code>
-                </div>
-              </article>
-              <article class="win roadmap-card">
-                <div class="win-bar"><span>chapter 04 · pick</span></div>
-                <div class="win-body">
-                  <h2>Pick, place &amp; explain</h2>
-                  <p>
-                    An inspectable state machine: acquire → validate → approach
-                    → pick → transfer → release → verify.
-                  </p>
-                  <code>Checkpoint: repeated supervised trials with measured outcomes.</code>
-                </div>
-              </article>
-            </div>
-          </section>
-
-          <section class="page" id="system" hidden>
-            <div class="page-heading">
-              <h1>how<i>//</i>it_works<span class="cursor">_</span></h1>
-              <p>A small local system with a readable boundary between vision and robotics.</p>
-            </div>
-            <div class="architecture">
-              <div>OAK camera<small>color pipeline</small></div>
-              <span>→</span>
-              <div>camera producer<small>loopback · 8090</small></div>
-              <span>→</span>
-              <div>vision worker<small>HSV / YOLOX / hands</small></div>
-              <span>→</span>
-              <div>this dashboard<small>loopback · 8100</small></div>
-            </div>
-            <div class="two-columns">
-              <article class="win">
-                <div class="win-bar"><span>source map</span></div>
-                <div class="win-body">
-                  <dl class="detail-list">
-                    <dt>Camera capture</dt>
-                    <dd><code>scripts/camera_preview.py</code></dd>
-                    <dt>Color lesson</dt>
-                    <dd><code>labdeck/color.py</code></dd>
-                    <dt>Pickup cycle</dt>
-                    <dd><code>labdeck/automatic_pick.py</code></dd>
-                    <dt>Shelf carry</dt>
-                    <dd><code>labdeck/shelf_place.py</code></dd>
-                    <dt>Hand following</dt>
-                    <dd><code>labdeck/hand_follow.py</code></dd>
-                    <dt>HTTP + workers</dt>
-                    <dd><code>labdeck/server.py</code></dd>
-                    <dt>Browser</dt>
-                    <dd><code>assets/app.js · viz.js · creature.js</code></dd>
-                  </dl>
-                </div>
-              </article>
-              <article class="win">
-                <div class="win-bar"><span>session boundaries</span></div>
-                <div class="win-body">
-                  <p class="body-copy">
-                    Frames and detections are processed locally. The dashboard
-                    serves only this laptop. Page loads never move the arm; only
-                    the demo tabs and the explicit buttons request motion.
-                  </p>
-                  <p class="body-copy">
-                    Color thresholds describe appearance. YOLO predictions
-                    describe learned classes and never trigger motion.
-                  </p>
-                </div>
-              </article>
-            </div>
-          </section>
-          <footer>
-            <span>lite6//deck</span><span>observe. experiment. understand.</span
-            ><span>classroom edition / 02</span>
-          </footer>
+            <p class="estop">
+              The physical E-stop is the only immediate stop. These buttons
+              ask for one guarded cycle each.
+            </p>
+            <button id="mask-toggle" class="text-button" aria-pressed="false">
+              ◧ Show threshold mask
+            </button>
+          </aside>
         </div>
-      </main>
-    </div>
+
+        <div class="readings">
+          <section>
+            <h3>Arm joints</h3>
+            <div id="joint-bars" class="joint-bars">Waiting for telemetry.</div>
+            <p class="note">Degrees from zero, refreshed every three seconds.</p>
+          </section>
+          <section>
+            <h3>Camera signal</h3>
+            <div class="spark-block">
+              <div class="spark-head"><span>Frames per second</span><b id="spark-fps-value">—</b></div>
+              <svg id="spark-fps" class="spark" viewBox="0 0 240 48" role="img" aria-label="Processed frames per second, recent history"></svg>
+            </div>
+            <div class="spark-block">
+              <div class="spark-head"><span>Milliseconds per frame</span><b id="spark-ms-value">—</b></div>
+              <svg id="spark-ms" class="spark" viewBox="0 0 240 48" role="img" aria-label="Vision processing time per frame, recent history"></svg>
+            </div>
+          </section>
+          <section class="results-panel">
+            <h3>What the camera found <span id="result-count" class="count">0 FOUND</span></h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Thing</th><th>Where (sensor px)</th><th>Score or size</th></tr>
+                </thead>
+                <tbody id="detections"></tbody>
+              </table>
+              <div class="empty-state" id="empty-state">
+                <strong>Nothing in view.</strong>
+                <p>Put the green block under the camera, or switch to Objects.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="workbench">
+          <section class="settings-panel">
+            <h3>Tune detection</h3>
+            <div id="color-settings">
+              <label>Color to find
+                <select id="preset">
+                  <option value="green">Green</option>
+                  <option value="red">Red</option>
+                  <option value="blue">Blue</option>
+                  <option value="yellow">Yellow</option>
+                </select></label>
+              <label class="slider-label">Smallest region to count
+                <output id="area-value">300 px²</output>
+                <input id="min-area" type="range" min="100" max="10000" step="100" value="300" />
+              </label>
+              <p class="note">
+                Raise this to ignore specks. Lighting and similar colors can
+                still fool it.
+              </p>
+              <p class="code-note" id="hsv-note">HSV ranges load with the first frame.</p>
+            </div>
+            <div id="yolo-settings" hidden>
+              <label class="slider-label">Confidence needed
+                <output id="confidence-value">40%</output>
+                <input id="confidence" type="range" min="10" max="95" step="5" value="40" />
+              </label>
+              <p class="note">YOLOX-Nano runs on this laptop and knows 80 everyday object classes.</p>
+            </div>
+            <div id="raw-settings" hidden>
+              <p class="note">Plain mode shows the camera with no detector.</p>
+            </div>
+            <p role="status" id="settings-message" class="note"></p>
+          </section>
+          <section class="lesson-panel">
+            <h3>How detection works</h3>
+            <p id="lesson-intro">Color detection is a sequence of small, inspectable decisions.</p>
+            <ol class="pipeline">
+              <li><h4>Capture a frame</h4><p>Read a fresh color image from the OAK camera.</p></li>
+              <li><h4 id="step-two-title">Select a color range</h4><p id="step-two-body">Convert BGR to HSV, then keep matching pixels.</p></li>
+              <li><h4 id="step-three-title">Find useful shapes</h4><p id="step-three-body">Clean the mask and reject small or narrow regions.</p></li>
+              <li><h4>Describe what it found</h4><p>Report its box and pixel measurements. Pickup turns those into arm millimeters using the tabletop calibration.</p></li>
+            </ol>
+          </section>
+        </div>
+      </section>
+
+      <!-- Read-only telemetry: displayed positions are never movement targets. -->
+      <section class="page" id="robot" hidden>
+        <h1>Telemetry</h1>
+        <p class="lede">Live readings from the arm, every three seconds. Nothing on this page sends commands.</p>
+        <div class="columns">
+          <section>
+            <h3>Connection</h3>
+            <dl id="robot-details" class="detail-list"></dl>
+            <p class="note">A connection with no error codes does not mean the arm is ready to move. State is the raw SDK code.</p>
+          </section>
+          <section>
+            <h3>Tool position</h3>
+            <div id="pose-grid" class="pose-grid"></div>
+            <p class="note">X, Y, Z in millimeters; roll, pitch, yaw in degrees.</p>
+          </section>
+        </div>
+        <section>
+          <h3>Joint angles</h3>
+          <div id="joint-grid" class="joint-grid"></div>
+        </section>
+      </section>
+
+      <section class="page" id="learn" hidden>
+        <h1>Lessons</h1>
+        <p class="lede">Each chapter has an experiment and a checkpoint before the next.</p>
+        <ol class="chapters">
+          <li>
+            <h3>Observe and detect</h3>
+            <p>Trace a frame from the OAK camera through color thresholds or local YOLO, and read the arm's status without moving it.</p>
+            <p class="note">Compare plain, mask and overlay views. Explain a centroid, a confidence score and a false positive. <code>labdeck/color.py</code></p>
+          </li>
+          <li>
+            <h3>Measure and calibrate</h3>
+            <p>Relate pixels to arm millimeters with known reference points, and measure the error on points the fit never saw.</p>
+            <p class="note">Checkpoint: measurements with documented uncertainty.</p>
+          </li>
+          <li>
+            <h3>Teach controlled motion</h3>
+            <p>Confirm the E-stop, tool, payload, clear workspace and speed limits before any movement.</p>
+            <p class="note">Checkpoint: supervised, slow motion with stops tested.</p>
+          </li>
+          <li>
+            <h3>Pick, place and explain</h3>
+            <p>Build a state machine you can inspect: find, check, approach, pick, carry, release, verify.</p>
+            <p class="note">Checkpoint: repeated supervised trials with measured outcomes.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="page" id="system" hidden>
+        <h1>How it works</h1>
+        <p class="lede">A small local system with a readable line between seeing and moving.</p>
+        <p class="flow">
+          <span>OAK camera</span><span>camera producer, port 8090</span><span>vision worker</span><span>this deck, port 8100</span>
+        </p>
+        <div class="columns">
+          <section>
+            <h3>Where to read the code</h3>
+            <dl class="detail-list">
+              <dt>Camera capture</dt><dd><code>scripts/camera_preview.py</code></dd>
+              <dt>Color detection</dt><dd><code>labdeck/color.py</code></dd>
+              <dt>Pick and place</dt><dd><code>labdeck/automatic_pick.py</code></dd>
+              <dt>Shelf carry</dt><dd><code>labdeck/shelf_place.py</code></dd>
+              <dt>Hand following</dt><dd><code>labdeck/hand_follow.py</code></dd>
+              <dt>Server</dt><dd><code>labdeck/server.py</code></dd>
+              <dt>This page</dt><dd><code>assets/app.js</code>, <code>viz.js</code>, <code>tank.js</code></dd>
+            </dl>
+          </section>
+          <section>
+            <h3>What runs here</h3>
+            <p>Frames and detections stay on this laptop. Loading the page never moves the arm; only the demo choices and the buttons ask for motion.</p>
+            <p>Color thresholds describe appearance. YOLO predictions describe learned classes and never trigger motion.</p>
+          </section>
+        </div>
+      </section>
+    </main>
   </body>
 </html>

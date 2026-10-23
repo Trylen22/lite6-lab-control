@@ -234,7 +234,7 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
                 "/assets/style.css": ("style.css", "text/css"),
                 "/assets/app.js": ("app.js", "text/javascript"),
                 "/assets/viz.js": ("viz.js", "text/javascript"),
-                "/assets/creature.js": ("creature.js", "text/javascript"),
+                "/assets/tank.js": ("tank.js", "text/javascript"),
             }
             if path in assets:
                 filename, content_type = assets[path]

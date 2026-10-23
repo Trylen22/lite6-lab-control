@@ -118,10 +118,10 @@ function setModePresentation(mode) {
   $("raw-settings").hidden = mode !== "raw";
   $("mask-toggle").disabled = mode !== "color";
   $("mode-metric").textContent = {
-    color: "Color / HSV",
-    raw: "Raw camera",
-    yolo: "YOLOX-Nano",
-    hands: "Hands / gestures",
+    color: "Color",
+    raw: "Plain camera",
+    yolo: "Objects (YOLOX)",
+    hands: "Hand landmarks",
   }[mode];
   $("lesson-intro").textContent =
     mode === "yolo"
@@ -164,12 +164,12 @@ function setModePresentation(mode) {
       "Open palm follows; a fist sends the arm back to its ready pose.";
   }
   $("view-caption").textContent = maskVisible
-    ? "HSV THRESHOLD MASK"
+    ? "Threshold mask"
     : {
-        color: "COLOR OVERLAY",
-        raw: "RAW COLOR",
-        yolo: "YOLO OBJECT OVERLAY",
-        hands: "HAND LANDMARKS",
+        color: "Color overlay",
+        raw: "Plain camera",
+        yolo: "Object overlay",
+        hands: "Hand landmarks",
       }[mode];
 }
 function changeStreamView() {
@@ -338,7 +338,7 @@ async function refresh() {
       ? `640 × 400 · ${v.age_seconds.toFixed(2)}s frame age`
       : "Waiting for fresh frames";
     $("robot-state").textContent = r.fresh ? "Connected" : "Unavailable";
-    $("live-label").textContent = v.fresh ? "● LIVE" : "FEED UNAVAILABLE";
+    $("live-label").textContent = v.fresh ? "Live" : "No feed";
     $("stale-overlay").hidden = v.fresh;
     if (!v.fresh)
       $("stale-overlay").textContent =
@@ -348,8 +348,8 @@ async function refresh() {
       `Laptop CPU · ${v.processing_ms.toFixed(1)} ms / frame`;
     $("candidate-count").textContent = v.fresh ? v.detections.length : "—";
     $("result-count").textContent = v.fresh
-      ? `${v.detections.length} FOUND`
-      : "NO FRESH DATA";
+      ? `${v.detections.length} found`
+      : "no fresh data";
     // Keep sliders responsive during dragging; synchronize after a POST or on
     // first load, rather than overwriting a student's in-progress input.
     if (
@@ -418,7 +418,7 @@ async function refresh() {
         : data.follow_ready?.reason || "Following unavailable";
     $("pick-place").disabled =
       startingPickup || running || followRunning || !data.pickup?.ready;
-    $("pick-place").textContent = running ? "Cycle running…" : "Pick & Place";
+    $("pick-place").textContent = running ? "Cycle running…" : "Pick & place";
     $("pick-shelf").disabled = $("pick-place").disabled;
     $("pickup-phase").textContent = running
       ? job.phase.replaceAll("_", " ")
@@ -449,10 +449,10 @@ async function refresh() {
     ["camera-dot", "stream-dot", "robot-dot"].forEach((id) => dot(id, false));
     $("stale-overlay").hidden = false;
     $("stale-overlay").textContent = "Dashboard connection lost. Reconnecting…";
-    $("live-label").textContent = "DISCONNECTED";
+    $("live-label").textContent = "Disconnected";
     $("candidate-count").textContent = "—";
     $("detections").replaceChildren();
-    $("result-count").textContent = "NO FRESH DATA";
+    $("result-count").textContent = "no fresh data";
     $("empty-state").hidden = false;
     $("fps").textContent = "—";
     telemetry({
