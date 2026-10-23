@@ -235,6 +235,10 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
                 "/assets/app.js": ("app.js", "text/javascript"),
                 "/assets/viz.js": ("viz.js", "text/javascript"),
                 "/assets/tank.js": ("tank.js", "text/javascript"),
+                # Official Louisiana Tech lockups, taken from the university's
+                # PowerPoint template (brand.latech.edu/tools/powerpoint-template).
+                "/assets/latech-logo-color.png": ("latech-logo-color.png", "image/png"),
+                "/assets/latech-logo-white.png": ("latech-logo-white.png", "image/png"),
             }
             if path in assets:
                 filename, content_type = assets[path]

@@ -24,7 +24,7 @@
   const captionEl = document.getElementById("tank-caption");
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const MONO = '"DejaVu Sans Mono", "Menlo", "Consolas", ui-monospace, monospace';
-  const UI = '"Atkinson Hyperlegible", system-ui, sans-serif';
+  const UI = '"Avenir Next", "Avenir", "Nunito Sans", system-ui, sans-serif';
   const FONT_PX = 10;
   const CELL_H = 10;
   let CELL_W = 8;
