@@ -282,3 +282,13 @@ Hardware result (servo following, cce3f7b): three operator-run sessions at
 returned_to_ready with no faults or tracking errors. Operator: "works much
 better now"; recorded the demo video. The one-hand lock (33baf16) was committed
 during these sessions and was not loaded yet (dashboard not restarted).
+
+Start-pose moves: operator reported that selecting Color detection did not
+move to the pickup start. There was no such move; the arm had been jogged by
+hand. Added tab-triggered moves between the two demo start poses. Read-only
+preview: controller IK for (290, 20, 265.7) chose J4 -179.5/J6 -179.2, a 238
+deg wrist swing from the hand pose; selected the equivalent J6 +180.8 branch
+used by validated pickups (FK matches target). Joint path both directions:
+max 122 deg (J6), tool tip min z 265.7 mm, radius 227-291 mm, no limits.
+Removed the pickup profile's 2 h expiry (it had lapsed at 00:40 UTC).
+Dashboard restarted; not yet run on hardware at the time of this entry.

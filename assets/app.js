@@ -189,6 +189,24 @@ $("mask-toggle").addEventListener("click", () => {
   changeStreamView();
 });
 
+async function goToStart(task) {
+  try {
+    const response = await fetch("/api/go-start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Labdeck-Action": "go-start",
+      },
+      body: JSON.stringify({ task }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Move to start failed");
+  } catch (error) {
+    $(task === "hand" ? "follow-message" : "pickup-message").textContent =
+      error.message;
+  }
+}
+
 async function configure(patch) {
   if (pending) return;
   pending = true;
@@ -205,6 +223,10 @@ async function configure(patch) {
       maskVisible = false;
       setModePresentation(patch.mode);
       changeStreamView();
+      // Picking a demo tab is the operator's request to move to its start
+      // pose. Page loads and status polling never move the arm.
+      const task = { color: "pickup", hands: "hand" }[patch.mode];
+      if (task) await goToStart(task);
     }
     $("settings-message").textContent =
       "Observation settings applied to the host.";
@@ -382,6 +404,8 @@ async function refresh() {
       message: "Pickup unavailable",
     };
     const running = job.state === "running";
+    const transfer = data.transfer || {};
+    const moving = transfer.state === "running";
     followRunning = data.follow?.state === "running";
     if (!followRunning) followToken = null;
     $("follow-start").disabled =
@@ -389,7 +413,9 @@ async function refresh() {
     $("follow-stop").disabled = !followRunning;
     $("follow-message").textContent = followRunning
       ? data.follow.message
-      : data.follow_ready?.reason || "Following unavailable";
+      : (moving || transfer.state === "failed") && transfer.task === "hand"
+        ? transfer.message
+        : data.follow_ready?.reason || "Following unavailable";
     $("pick-place").disabled =
       startingPickup || running || followRunning || !data.pickup?.ready;
     $("pick-place").textContent = running ? "Cycle running…" : "Pick & Place";
@@ -403,7 +429,9 @@ async function refresh() {
     $("pickup-message").textContent =
       running || job.state === "complete" || job.state === "failed"
         ? job.message
-        : data.pickup?.reason || "Pickup unavailable";
+        : (moving || transfer.state === "failed") && transfer.task === "pickup"
+          ? transfer.message
+          : data.pickup?.reason || "Pickup unavailable";
   } catch (error) {
     recovering = true;
     $("pick-place").disabled = true;

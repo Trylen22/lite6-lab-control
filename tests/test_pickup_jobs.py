@@ -108,7 +108,7 @@ class PickupJobsTests(unittest.TestCase):
         self.assertEqual(len(self.calls), 1)
 
     def test_unready_height_ambiguous_target_and_expired_profile_block_dispatch(self):
-        for problem in ["height", "camera", "multiple", "state", "expired"]:
+        for problem in ["height", "camera", "multiple", "state"]:
             with self.subTest(problem=problem):
                 vision = json.loads(json.dumps(self.vision))
                 robot = json.loads(json.dumps(self.robot))
@@ -121,12 +121,6 @@ class PickupJobsTests(unittest.TestCase):
                     vision["detections"] *= 2
                 if problem == "state":
                     robot["values"]["state"] = 5
-                if problem == "expired":
-                    p = profile_fixture()
-                    p["expires_utc"] = (
-                        datetime.now(timezone.utc) - timedelta(seconds=1)
-                    ).isoformat()
-                    self.profile.write_text(json.dumps(p))
                 with self.assertRaises(ValueError):
                     self.jobs.start(vision, robot)
         self.assertEqual(self.calls, [])

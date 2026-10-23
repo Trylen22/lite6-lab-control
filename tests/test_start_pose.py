@@ -1,0 +1,123 @@
+"""Start-pose tests use a fake arm: path checks, already-there, and exclusion."""
+
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import numpy as np
+
+from labdeck.start_pose import StartPoseMover, TransferArm
+
+HAND = [6.9, -14.9, 48.7, -67.1, -67.6, 58.6]
+PICKUP = [3.5, 20.3, 64.4, -179.5, -42.2, 180.8]
+
+
+class FakeSDK:
+    """Tool tip height is a made-up function of J2 so paths can dip."""
+
+    def __init__(self, joints, low_dip=False):
+        self.angles = list(joints)
+        self.low_dip = low_dip
+        self.mode = 0
+        self.moves = []
+
+    def get_forward_kinematics(self, joints, **_):
+        z = 300 - (120 if self.low_dip and 0 < joints[1] < 10 else 0)
+        return 0, [290, 20, z, -179.4, -2.05, 2.48]
+
+    def is_joint_limit(self, joints, **_):
+        return 0, False
+
+    def get_servo_angle(self):
+        return 0, self.angles + [0.0]
+
+    def get_state(self):
+        return 0, 2
+
+    def set_mode(self, mode):
+        self.mode = mode
+        return 0
+
+    def set_state(self, state):
+        return 0
+
+    def set_servo_angle(self, angle, **kwargs):
+        self.moves.append((angle, kwargs["speed"]))
+        self.angles = list(angle)
+        return 0
+
+
+def fake_arm(sdk):
+    arm = TransferArm.__new__(TransferArm)
+    arm.arm = sdk
+    arm.servoing = False
+    return arm
+
+
+class TransferArmTests(unittest.TestCase):
+    def test_moves_once_then_reports_already_there(self):
+        sdk = FakeSDK(HAND)
+        arm = fake_arm(sdk)
+        self.assertTrue(arm.go(np.array(PICKUP)))
+        self.assertEqual(sdk.moves, [(PICKUP, 25)])
+        self.assertFalse(arm.go(np.array(PICKUP)))
+        self.assertEqual(len(sdk.moves), 1)
+
+    def test_path_that_dips_toward_table_is_refused(self):
+        sdk = FakeSDK(HAND, low_dip=True)
+        with self.assertRaisesRegex(RuntimeError, "dips below"):
+            fake_arm(sdk).go(np.array(PICKUP))
+        self.assertEqual(sdk.moves, [])
+
+
+class FakeArmContext:
+    def __init__(self, joints=HAND):
+        self.joints_now = list(joints)
+        self.targets = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+    def joints(self):
+        return self.joints_now
+
+    def fk(self, joints):
+        return [290, 20, 265.717163, -179.397268, -2.048553, 2.482282]
+
+    def go(self, target):
+        self.targets.append(list(target))
+        self.joints_now = list(target)
+        return True
+
+
+class MoverTests(unittest.TestCase):
+    def test_pickup_task_checks_profile_and_moves(self):
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            patch("labdeck.start_pose.ROOT", Path(folder)),
+            patch("labdeck.start_pose.load_profile") as profile,
+            patch("labdeck.start_pose.check_observation_pose") as check,
+        ):
+            poses = Path(folder) / "start-poses.json"
+            poses.write_text(json.dumps({"pickup_start_joints_deg": PICKUP}))
+            robot = FakeArmContext()
+            mover = StartPoseMover(lambda: robot, poses)
+            mover.start("pickup")
+            mover.wait()
+            check.assert_called_once()
+            profile.assert_called_once()
+            self.assertEqual(robot.targets, [PICKUP])
+            self.assertEqual(mover.snapshot()["message"], "At pickup start")
+
+    def test_unknown_task_rejected(self):
+        with self.assertRaises(ValueError):
+            StartPoseMover(FakeArmContext).start("elsewhere")
+
+
+if __name__ == "__main__":
+    unittest.main()

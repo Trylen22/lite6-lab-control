@@ -26,6 +26,7 @@ from labdeck.yolo import YoloDetector
 from labdeck.display import upright, upright_detections
 from labdeck.hands import HandDetector, draw_hands, MODEL as HAND_MODEL
 from labdeck.hand_follow import HandFollower
+from labdeck.start_pose import StartPoseMover
 from labdeck.jobs import JobManager
 from labdeck.automatic_pick import load_profile, PROFILE
 
@@ -206,7 +207,7 @@ class VisionWorkspace:
             stop.wait(0.10)
 
 
-def make_handler(vision, robot, stop, jobs=None, follower=None):
+def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
     dispatch_lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
@@ -319,6 +320,12 @@ def make_handler(vision, robot, stop, jobs=None, follower=None):
                     if jobs
                     else (False, "Pickup worker unavailable")
                 )
+                transfer = (
+                    mover.snapshot()
+                    if mover
+                    else {"state": "unavailable", "task": None, "message": ""}
+                )
+                moving = transfer["state"] == "running"
                 self.send_json(
                     200,
                     {
@@ -327,14 +334,18 @@ def make_handler(vision, robot, stop, jobs=None, follower=None):
                         "motion_available": jobs is not None,
                         "job": job,
                         "follow": follow_state,
+                        "transfer": transfer,
                         "follow_ready": {
-                            "ready": follow_ready and job["state"] != "running",
+                            "ready": follow_ready
+                            and job["state"] != "running"
+                            and not moving,
                             "reason": follow_reason,
                         },
                         "pickup": {
                             "ready": ready
                             and job["state"] != "running"
-                            and follow_state["state"] != "running",
+                            and follow_state["state"] != "running"
+                            and not moving,
                             "reason": reason,
                         },
                         "phase": "Green pickup workspace",
@@ -393,6 +404,7 @@ def make_handler(vision, robot, stop, jobs=None, follower=None):
                 "/api/follow/start",
                 "/api/follow/stop",
                 "/api/follow/heartbeat",
+                "/api/go-start",
             ):
                 self.send_json(
                     404, {"error": "No such action; robot commands are unavailable"}
@@ -409,6 +421,32 @@ def make_handler(vision, robot, stop, jobs=None, follower=None):
                 if self.headers.get_content_type() != "application/json":
                     raise ValueError("Content-Type must be application/json")
                 patch = json.loads(self.rfile.read(size))
+                if self.path == "/api/go-start":
+                    # Only the two stored demo start poses; no coordinates.
+                    if (
+                        self.headers.get("X-Labdeck-Action") != "go-start"
+                        or self.headers.get("Sec-Fetch-Site") == "cross-site"
+                    ):
+                        self.send_json(403, {"error": "Use the local demo tabs"})
+                        return
+                    if mover is None:
+                        raise ValueError("Start-pose moves unavailable")
+                    if not isinstance(patch, dict) or set(patch) != {"task"}:
+                        raise ValueError("Expected a demo task")
+                    if patch["task"] not in ("pickup", "hand"):
+                        raise ValueError("Unknown demo task")
+                    try:
+                        with dispatch_lock:
+                            if jobs and jobs.snapshot()["state"] == "running":
+                                raise RuntimeError("Pickup cycle active")
+                            if follower and follower.snapshot()["state"] == "running":
+                                raise RuntimeError("Stop hand following first")
+                            state = mover.start(patch["task"])
+                    except RuntimeError as exc:
+                        self.send_json(409, {"error": str(exc)})
+                        return
+                    self.send_json(202, state)
+                    return
                 if self.path.startswith("/api/follow/"):
                     if (
                         self.headers.get("X-Labdeck-Action") != "hand-follow"
@@ -432,6 +470,8 @@ def make_handler(vision, robot, stop, jobs=None, follower=None):
                             with dispatch_lock:
                                 if jobs and jobs.snapshot()["state"] == "running":
                                     raise ValueError("Pickup cycle active")
+                                if mover and mover.running():
+                                    raise ValueError("Arm is moving to a start pose")
                                 ready, reason = follower.readiness(robot.snapshot())
                                 if not ready:
                                     raise ValueError(reason)
@@ -457,6 +497,8 @@ def make_handler(vision, robot, stop, jobs=None, follower=None):
                         with dispatch_lock:
                             if follower and follower.snapshot()["state"] == "running":
                                 raise RuntimeError("Stop hand following before pickup")
+                            if mover and mover.running():
+                                raise RuntimeError("Arm is moving to a start pose")
                             job = jobs.start(vision.snapshot(), robot.snapshot())
                     except RuntimeError as exc:
                         self.send_json(409, {"error": str(exc)})
@@ -489,10 +531,12 @@ def main():
     stop = threading.Event()
     jobs = JobManager()
     follower = HandFollower(vision)
+    mover = StartPoseMover()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
     server = ThreadingHTTPServer(
-        ("127.0.0.1", args.port), make_handler(vision, robot, stop, jobs, follower)
+        ("127.0.0.1", args.port),
+        make_handler(vision, robot, stop, jobs, follower, mover),
     )
     workers = [
         threading.Thread(target=vision.run, args=(stop,), daemon=True),
@@ -509,6 +553,7 @@ def main():
         stop.wait()
     finally:
         follower.join()
+        mover.wait()
         jobs.wait_for_completion()
         stop.set()
         with vision.condition:

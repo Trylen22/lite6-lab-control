@@ -82,3 +82,12 @@ The hand calibration no longer expires (camera-mount geometry, not time);
 start is refused >15 deg from the calibrated anchor. Base/shoulder/elbow/roll
 stay fixed and suction stays released. `local/hand-follow.json` stays ignored.
 Do not restart the dashboard during an active follow session.
+
+Demo start poses (2026-10-22, operator request): clicking the Color detection
+tab moves the arm to the pickup start; clicking Hand puppy moves it to the
+hand-demo anchor (labdeck/start_pose.py). One joint move at 25 deg/s after an
+FK-sampled path check (tool tip >= 250 mm, no joint limits). Pickup start
+joints live in ignored local/start-poses.json on the validated wrist branch
+(J4 ~ -180, J6 ~ +180); the controller's own IK branch spun the wrist ~238 deg.
+Page load and status polling still never move the arm. The pickup profile no
+longer expires; its camera-session check still applies.

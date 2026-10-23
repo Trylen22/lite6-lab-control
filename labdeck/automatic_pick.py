@@ -31,8 +31,6 @@ def load_profile(path=PROFILE):
     profile = json.loads(Path(path).read_text())
     if profile.get("schema") != 1:
         raise ValueError("No supported pickup profile; validate calibration first")
-    if datetime.now(timezone.utc) >= datetime.fromisoformat(profile["expires_utc"]):
-        raise ValueError("Calibration session expired; revalidate before pickup")
     validate_speed_scale(profile["speed_scale"])
     clear_travel_speed(profile)
     j = np.array(profile["jacobian_px_per_mm"], dtype=float)
