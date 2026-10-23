@@ -327,3 +327,11 @@ drop at (70, -293, 489), head tilted. Traced on the other wrist branch;
 re-solved top/drop on the pickup branch (FK error < 0.01 mm; drop by damped
 Newton on FK). Read-only preview of all six segments passed (rise Z 266-478
 base locked; turn Z 477-478 base only; reach Z 477-489). Not yet run.
+
+First Pick -> Shelf run (01:57 UTC): pick, seal, lift and base-locked rise
+passed; near the end of the base-only turn (cup Z ~477, radius 268) the
+hanging block clipped the shelf lip and the operator E-stopped (SDK -9,
+controller error 2). Operator: path otherwise correct; reset the controller.
+Fix: turn now runs 60 mm above the drop (Z ~549, radius 299; +80 mm is out of
+reach), then a vertical 60 mm Cartesian set-down onto the drop, and a
+vertical lift-off before turning back. Read-only preview of all segments OK.

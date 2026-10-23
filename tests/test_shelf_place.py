@@ -1,4 +1,5 @@
-"""Shelf carry tests use a fake SDK: segment order, base locking, seal loss."""
+"""Shelf carry tests use a fake SDK: segment order, base locking, vertical
+set-down, seal loss and path floors."""
 
 import unittest
 
@@ -6,10 +7,10 @@ import numpy as np
 
 from labdeck.shelf_place import ShelfCarrier
 
-TOP = [8.0, -0.3, 88.0, -180.1, -45.8, 175.2]
+ABOVE = [-78.0, 20.4, 130.2, -173.3, -59.9, 184.7]
 DROP = [-78.0, 7.9, 98.2, -171.1, -40.6, 181.3]
 HOME = [3.5, 20.3, 64.4, -179.5, -42.2, 180.8]
-SHELF = {"top_joints_deg": TOP, "drop_joints_deg": DROP}
+SHELF = {"above_drop_joints_deg": ABOVE, "drop_joints_deg": DROP}
 
 
 class FakeSDK:
@@ -59,6 +60,10 @@ class FakeSDK:
     def set_position(self, *target, **_):
         self.pose = list(target)
         self.moves.append(("lift", target[2]))
+        # Straight down/up between the above-drop and drop poses.
+        for joints in (DROP, ABOVE):
+            if abs(target[2] - (300 + joints[2])) < 1e-6:
+                self.joints_now = list(joints)
         return 0
 
     def set_servo_angle(self, angle, **_):
@@ -78,24 +83,21 @@ class ShelfCarrierTests(unittest.TestCase):
         carrier = ShelfCarrier(sdk, [], sleep=lambda _: None)
         return carrier.run(SHELF, 265, HOME)
 
-    def test_rises_with_base_locked_turns_base_only_then_releases_and_returns(self):
+    def test_rise_base_locked_turn_high_then_straight_down_release_and_back(self):
         sdk = FakeSDK(HOME)
         self.run_carry(sdk)
         lifts = [m[1] for m in sdk.moves if m[0] == "lift"]
-        self.assertEqual(lifts, [105.0, 265])  # 10 mm seal check, then camera
-        rise, turn, reach, back, turn_back, home = joint_moves(sdk)
+        # 10 mm seal test, camera height, straight down onto the shelf, up.
+        self.assertEqual(lifts, [105.0, 265, 300 + DROP[2], 300 + ABOVE[2]])
+        rise, turn, turn_back, home = joint_moves(sdk)
         self.assertEqual(rise[0], HOME[0])  # base locked during the rise
-        np.testing.assert_allclose(rise[1:], TOP[1:])
-        np.testing.assert_allclose(turn[1:], rise[1:])  # base only
-        self.assertEqual(turn[0], DROP[0])
-        np.testing.assert_allclose(reach, DROP)
-        np.testing.assert_allclose(back, turn)
-        np.testing.assert_allclose(turn_back[1:], TOP[1:])
+        np.testing.assert_allclose(rise[1:], ABOVE[1:])
+        np.testing.assert_allclose(turn, ABOVE)  # base only from the rise
+        np.testing.assert_allclose(turn_back[1:], ABOVE[1:])
         self.assertEqual(turn_back[0], HOME[0])
         np.testing.assert_allclose(home, HOME)
         release = sdk.moves.index(("vacuum", False))
-        joints_before_release = [m for m in sdk.moves[:release] if m[0] == "joints"]
-        self.assertEqual(len(joints_before_release), 3)
+        self.assertEqual(sdk.moves[release - 1], ("lift", 300 + DROP[2]))
 
     def test_lost_seal_during_carry_stops_without_release_or_more_moves(self):
         sdk = FakeSDK(HOME)
@@ -107,10 +109,13 @@ class ShelfCarrierTests(unittest.TestCase):
 
     def test_path_below_floor_is_refused_before_moving(self):
         sdk = FakeSDK(HOME)
-        low_top = {"top_joints_deg": TOP, "drop_joints_deg": DROP[:2] + [70] + DROP[3:]}
+        low = {
+            "above_drop_joints_deg": ABOVE[:2] + [-40] + ABOVE[3:],
+            "drop_joints_deg": DROP,
+        }
         with self.assertRaisesRegex(RuntimeError, "dips below"):
-            self.run_carry_with(sdk, low_top)
-        self.assertEqual(len(joint_moves(sdk)), 2)
+            self.run_carry_with(sdk, low)
+        self.assertEqual(len(joint_moves(sdk)), 0)
 
     def run_carry_with(self, sdk, shelf):
         return ShelfCarrier(sdk, [], sleep=lambda _: None).run(shelf, 265, HOME)
