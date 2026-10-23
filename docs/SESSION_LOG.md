@@ -353,3 +353,16 @@ brought holdout error to 0.36 mm / 0.02 deg. Table/shelf geometry in the sim
 is estimated (block top 94.35 mm measured, 40 mm block assumed).
 Morning restart: lite6-lab network profile was down (autoconnect off); camera
 producer restarted; arm reported E-stop error 2 awaiting operator clear.
+
+Lab: added UFACTORY's Lite 6 vacuum gripper mesh (cup tip 61 mm from the
+flange). With the controller's TCP at the flange, the measured contact (flange
+z 94.35) puts the cup tip at 33.35 mm: the table is level with the base and
+the block is ~33 mm, so the sim's table moved from an earlier 54 mm guess to
+0. Camera: OAK-D-PRO-POE, color OV9782 (80° × 55° per Luxonis). The stand CAD
+(local/oak_camera_stand.zip, SolidWorks STEP) is a ring on the gripper with a
+75 mm VESA-style camera mount 75 mm off the tool axis. With that offset fixed,
+the remaining pose was fitted to the pickup calibration (cup-aim pixel and
+pixel/mm response): 29.5 mm lateral, lens 18 mm along the gripper, ~5° tilt;
+reproduces aim within 1 px and the response within 0.06 px/mm. A free 6-DOF
+fit was exact but ill-conditioned (offset/tilt trade-off), so it was rejected.
+Added a picture-in-picture view from that virtual camera.

@@ -98,11 +98,13 @@
           break;
         }
       }
-      const tool = K.fk(q, tcp);
-      if (tool[2] < floorZ) warn(blockId, `Tool goes below the table (z ${tool[2].toFixed(0)} mm)`, "error");
+      // Collisions use the physical tool tip (e.g. the vacuum cup), which can
+      // differ from the controller's TCP.
+      const tool = K.fk(q, options.tipOffset || tcp);
+      if (tool[2] < floorZ - 0.5) warn(blockId, `The cup tip goes below the table (z ${tool[2].toFixed(0)} mm)`, "error");
       const box = options.obstacle;
       if (box && tool[0] > box.min[0] && tool[0] < box.max[0] && tool[1] > box.min[1] && tool[1] < box.max[1] && tool[2] > box.min[2] && tool[2] < box.max[2])
-        warn(blockId, `Tool enters the ${box.name}`, "error");
+        warn(blockId, `The cup tip enters the ${box.name}`, "error");
     }
 
     function jointMove(target, blockId) {

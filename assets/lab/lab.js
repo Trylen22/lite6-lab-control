@@ -17,12 +17,31 @@ const P = window.LabProgram;
 const B = window.Blockly;
 const $ = (id) => document.getElementById(id);
 
-// Approximate lab geometry (robot mm). The pickup contact height is measured;
-// the table and shelf are estimates for practice, not collision guarantees.
-const BLOCK_SIZE = 40;
-const BLOCK_TOP = 94.35; // measured contact height of the block top
-const TABLE_Z = BLOCK_TOP - BLOCK_SIZE;
-const SHELF = { name: "shelf (approximate)", min: [-500, -560, 412], max: [600, -255, 440] };
+// Lab geometry (robot mm). The controller reports the FLANGE (TCP offset 0).
+// UFACTORY's Lite 6 vacuum gripper puts the cup tip 61 mm out along the flange
+// axis (lite_vacuum_gripper.urdf.xacro). Measured block contact: flange at
+// z 94.35 → cup tip at 33.35 mm, so the table is level with the robot base
+// and the block is a ~33 mm cube. The shelf is an estimate for practice.
+const TIP_MM = 61;
+const TABLE_Z = 0;
+const BLOCK_SIZE = 94.35 - TIP_MM;
+const SHELF = { name: "shelf (approximate)", min: [-500, -560, 385], max: [600, -255, 410] };
+// OAK-D Pro PoE (OV9782 color, 80° × 55°) on the gripper-ring stand. The
+// stand's CAD (local/oak_camera_stand.zip) puts the camera mount 75 mm out from
+// the tool axis; the rest of the pose was fitted to the pickup calibration
+// (cup-aim pixel and pixel-per-mm response at the pickup start): 29.5 mm to
+// the side, lens 18 mm along the gripper, tilted ~5° toward the cup. That
+// reproduces the real camera to ~1 px. Axes below are the three.js camera
+// (right, up, back) in the flange frame; "up" is the dashboard's upright view.
+const CAMERA = {
+  offset: [75, 29.5, 18.3],
+  right: [-0.0035, 0.9955, 0.095],
+  up: [1.0, 0.003, 0.0055],
+  back: [0.0052, 0.095, -0.9955],
+  hfov: 80,
+  vfov: 55,
+  body: [111, 40, 31.3],
+};
 const HOME_BLOCK = [290, 20];
 const STORE_KEY = "labdeck-lab-workspace";
 
@@ -202,17 +221,50 @@ async function initScene() {
       links[i].add(mesh);
     }),
   );
-  // Suction cup on the flange (TCP offset is zero on this arm).
-  const cup = new THREE.Mesh(new THREE.CylinderGeometry(9, 12, 18, 24), new THREE.MeshStandardMaterial({ color: 0x1d2433 }));
-  cup.rotation.x = Math.PI / 2;
-  cup.position.z = -9;
-  links[6].add(cup);
+  // UFACTORY Lite 6 vacuum gripper on the flange; a small disc marks the cup
+  // tip and turns red while suction is on.
+  const gripperGeo = await loader.loadAsync("/assets/lite6/vacuum_gripper_lite.stl");
+  gripperGeo.computeVertexNormals();
+  const gripper = new THREE.Mesh(gripperGeo, new THREE.MeshStandardMaterial({ color: 0x3a4150, roughness: 0.6 }));
+  gripper.scale.setScalar(1000);
+  links[6].add(gripper);
+  const cupTip = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 2, 24), new THREE.MeshStandardMaterial({ color: 0x1d2433 }));
+  cupTip.rotation.x = Math.PI / 2;
+  cupTip.position.z = TIP_MM - 1;
+  links[6].add(cupTip);
+
+  // OAK-D Pro PoE (111 × 40 × 31.3 mm) on a bracket, plus its view cone.
+  const camGroup = new THREE.Group();
+  camGroup.position.set(...CAMERA.offset);
+  camGroup.quaternion.setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(new THREE.Vector3(...CAMERA.right), new THREE.Vector3(...CAMERA.up), new THREE.Vector3(...CAMERA.back)),
+  );
+  const body = new THREE.Mesh(new THREE.BoxGeometry(...CAMERA.body), new THREE.MeshStandardMaterial({ color: 0x23272f, roughness: 0.5 }));
+  body.position.z = CAMERA.body[2] / 2; // lens on the front face
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(5, 20), new THREE.MeshStandardMaterial({ color: 0x0d4fbf, emissive: 0x0a2a66 }));
+  lens.position.z = -0.2;
+  lens.rotation.y = Math.PI;
+  camGroup.add(body, lens);
+  links[6].add(camGroup);
+  // The stand: a ring around the gripper and an arm out to the camera.
+  const standMat = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.6 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(40, 3.5, 10, 40), standMat);
+  ring.position.z = 4;
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(CAMERA.offset[0] - 38, 16, 8), standMat);
+  arm.position.set((CAMERA.offset[0] + 38) / 2 - 6, CAMERA.offset[1] * 0.6, CAMERA.offset[2] / 2 + 4);
+  links[6].add(ring, arm);
+  const eye = new THREE.PerspectiveCamera(CAMERA.vfov, CAMERA.hfov / CAMERA.vfov, 10, 3000);
+  eye.aspect = Math.tan((CAMERA.hfov * Math.PI) / 360) / Math.tan((CAMERA.vfov * Math.PI) / 360);
+  eye.updateProjectionMatrix();
+  camGroup.add(eye);
+  const frustum = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5 }));
+  scene.add(frustum);
 
   const pathLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 }));
   const trail = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ linewidth: 2 }));
   scene.add(pathLine, trail);
 
-  three = { renderer, scene, camera, controls, links, block, cup, pathLine, trail, trailPts: [], host, table, grid, shelf };
+  three = { renderer, scene, camera, controls, links, block, cupTip, eye, frustum, pathLine, trail, trailPts: [], host, table, grid, shelf, pip: true };
   applySceneTheme();
   new ResizeObserver(resizeScene).observe(host);
   resizeScene();
@@ -226,12 +278,32 @@ function applySceneTheme() {
   three.grid.material.color.set(dark ? 0x33466e : 0x9fb1d3);
   three.pathLine.material.color.set(css("--mark") || "#2b5fbf");
   three.trail.material.color.set(css("--coral") || "#cb333b");
+  three.frustum.material.color.set(css("--mark") || "#2b5fbf");
+}
+
+// The camera's view cone down to the table, from the virtual OAK.
+function updateFrustum() {
+  three.eye.updateMatrixWorld(true);
+  const origin = new THREE.Vector3().setFromMatrixPosition(three.eye.matrixWorld);
+  const pts = [];
+  const hit = [];
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const dir = new THREE.Vector3(sx, sy, 0.5).unproject(three.eye).sub(origin).normalize();
+    const t = dir.z < -1e-3 ? (TABLE_Z - origin.z) / dir.z : 400;
+    const p = origin.clone().addScaledVector(dir, Math.min(Math.max(t, 0), 1500));
+    hit.push(p);
+    pts.push(origin, p);
+  }
+  for (let i = 0; i < 4; i++) pts.push(hit[i], hit[(i + 1) % 4]);
+  three.frustum.geometry.dispose();
+  three.frustum.geometry = new THREE.BufferGeometry().setFromPoints(pts);
 }
 
 function resizeScene() {
   if (!three) return;
   const { clientWidth: w, clientHeight: h } = three.host;
   three.renderer.setSize(w, h, false);
+  three.renderer.autoClear = true;
   three.camera.aspect = w / Math.max(1, h);
   three.camera.updateProjectionMatrix();
 }
@@ -244,13 +316,14 @@ function setPose(q) {
     three.links[i].matrixWorldNeedsUpdate = true;
   });
   const tool = K.fk(q);
-  // Vacuum: grab the block when the cup touches its top with suction on.
+  const tip = K.fk(q, [0, 0, TIP_MM, 0, 0, 0]);
+  // Vacuum: grab the block when the cup tip touches its top with suction on.
   const b = sim.block;
   if (sim.suction && !b.held) {
     const top = [b.x, b.y, b.z + BLOCK_SIZE];
-    if (Math.hypot(tool[0] - top[0], tool[1] - top[1]) < 15 && Math.abs(tool[2] - top[2]) < 6) {
+    if (Math.hypot(tip[0] - top[0], tip[1] - top[1]) < 15 && Math.abs(tip[2] - top[2]) < 6) {
       b.held = true;
-      b.offset = [b.x - tool[0], b.y - tool[1], b.z - tool[2]];
+      b.offset = [b.x - tip[0], b.y - tip[1], b.z - tip[2]];
       log([{ level: "info", message: "Block picked up." }], true);
     }
   }
@@ -261,12 +334,12 @@ function setPose(q) {
     log([{ level: "info", message: overShelf ? "Block dropped onto the shelf." : "Block released onto the table." }], true);
   }
   if (b.held) {
-    b.x = tool[0] + b.offset[0];
-    b.y = tool[1] + b.offset[1];
-    b.z = tool[2] + b.offset[2];
+    b.x = tip[0] + b.offset[0];
+    b.y = tip[1] + b.offset[1];
+    b.z = tip[2] + b.offset[2];
   }
   three.block.position.set(b.x, b.y, b.z);
-  three.cup.material.color.set(sim.suction ? css("--coral") || "#cb333b" : 0x1d2433);
+  three.cupTip.material.color.set(sim.suction ? css("--coral") || "#cb333b" : 0x1d2433);
   readout(q, tool);
 }
 
@@ -288,6 +361,7 @@ function compileProgram() {
     startJoints: sim.start,
     tableZ: TABLE_Z,
     obstacle: SHELF,
+    tipOffset: [0, 0, TIP_MM, 0, 0, 0],
   });
   for (const f of program.findings) {
     const block = f.blockId && workspace.getBlockById(f.blockId);
@@ -466,6 +540,10 @@ function bindControls() {
   $("lab-speed").addEventListener("change", (e) => (sim.speed = Number(e.target.value)));
   $("lab-add-pose").addEventListener("click", addMoveFromPose);
   $("lab-sync").addEventListener("click", syncFromArm);
+  $("lab-pip").addEventListener("click", () => {
+    three.pip = !three.pip;
+    $("lab-pip").textContent = three.pip ? "Hide camera view" : "Show camera view";
+  });
   $("lab-home").addEventListener("click", () => {
     sim.start = [0, 0, 0, 0, 0, 0];
     resetSim();
@@ -503,7 +581,32 @@ async function start() {
     if (!$("lab").hidden) {
       tick(dt);
       three.controls.update();
-      three.renderer.render(three.scene, three.camera);
+      updateFrustum();
+      const r = three.renderer;
+      const { clientWidth: w, clientHeight: h } = three.host;
+      r.setScissorTest(false);
+      r.setViewport(0, 0, w, h);
+      three.frustum.visible = true;
+      r.render(three.scene, three.camera);
+      if (three.pip) {
+        // Picture-in-picture: what the wrist camera would see (shown upright).
+        const pw = Math.round(Math.min(280, w * 0.36));
+        const ph = Math.round(pw / 1.6);
+        const x = w - pw - 12, y = 12;
+        r.setScissorTest(true);
+        r.setScissor(x - 2, y - 2, pw + 4, ph + 4);
+        r.setViewport(x - 2, y - 2, pw + 4, ph + 4);
+        r.setClearColor(css("--title") || "#003087", 1);
+        r.clear();
+        r.setScissor(x, y, pw, ph);
+        r.setViewport(x, y, pw, ph);
+        r.setClearColor(isDark() ? 0x0b1220 : 0xffffff, 1);
+        r.clear();
+        three.frustum.visible = false;
+        r.render(three.scene, three.eye);
+        r.setScissorTest(false);
+        applySceneTheme();
+      }
     }
     requestAnimationFrame(frame);
   };
