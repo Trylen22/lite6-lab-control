@@ -22,6 +22,6 @@ class ClearTravelTests(unittest.TestCase):
         self.assertEqual(
             clear_travel_speed({"speed_scale": 1.3225, "clear_travel_mm_s": 20}), 20
         )
-        for speed in [float("nan"), float("inf"), True, 20.1, 0, 6]:
+        for speed in [float("nan"), float("inf"), True, 60.1, 0, 6]:
             with self.subTest(speed=speed), self.assertRaises(ValueError):
                 clear_travel_speed({"speed_scale": 1.3225, "clear_travel_mm_s": speed})

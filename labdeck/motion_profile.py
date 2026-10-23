@@ -23,8 +23,24 @@ def validate_speed_scale(scale):
 
 # The subsequent explicit speed-tuning request covers empty-tool travel only.
 # Contact, loaded lift/lower, and image-alignment scaling retain the old cap.
-MAX_CLEAR_TRAVEL_MM_S = 20.0
+MAX_CLEAR_TRAVEL_MM_S = 60.0
 CLEARANCE_ABOVE_FLOOR_MM = 15.0
+
+# Button Pick & Place profile (2026-10-23 operator speed request: a 52 mm
+# pick took 69 s). Most of that time was low ACCELERATION (2-10 mm/s^2), so
+# short moves never reached their speed. Every gate is unchanged: fresh
+# frames, IK previews, 0.5 mm contact steps with a 3-read seal check, seal
+# feedback before lift and during the hold, release verification.
+CLEAR_ACCEL_MM_S2 = 200  # Empty tool, >= 15 mm above the block.
+NEAR_CONTACT_MM_S = 10  # Final 10 mm approach / first retreat, empty tool.
+NEAR_CONTACT_ACCEL_MM_S2 = 50
+CONTACT_STEP_MM_S = 2.5  # Each 0.5 mm search step; step size unchanged.
+CONTACT_STEP_ACCEL_MM_S2 = 20
+LOADED_MM_S = 10  # 10 mm lift and lower while holding the block.
+LOADED_ACCEL_MM_S2 = 50
+SEAL_HOLD_SECONDS = 0.5  # Monitored hold, seal read every 0.1 s.
+ALIGN_GAIN = 0.9  # Fraction of the measured error moved per alignment step.
+ALIGN_MAX_STEP_MM = 60
 
 
 def clear_travel_speed(profile):

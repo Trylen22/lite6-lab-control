@@ -21,7 +21,15 @@ from .green_calibrate import FOLDER, save
 from scripts.taught_pick_trial import perform_cycle
 
 
-def search_contact(arm, start, events, sleep=time.sleep, speed_scale=1.0):
+def search_contact(
+    arm,
+    start,
+    events,
+    sleep=time.sleep,
+    speed_scale=1.0,
+    step_speed=None,
+    step_mvacc=2,
+):
     """Testable bounded search: 0.5 mm increments, 0.5 mm/s, total <=5 mm.
 
     This function is called ONLY after live tool-OFF preflight and a complete
@@ -106,8 +114,8 @@ def search_contact(arm, start, events, sleep=time.sleep, speed_scale=1.0):
             pose_known = False  # A timeout does not establish where motion ended.
             code = arm.set_position(
                 *expected,
-                speed=0.5 * speed_scale,
-                mvacc=2,
+                speed=step_speed or 0.5 * speed_scale,
+                mvacc=step_mvacc,
                 is_radian=False,
                 wait=True,
                 timeout=5,

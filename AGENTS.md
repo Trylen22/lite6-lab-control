@@ -100,3 +100,11 @@ the earlier "union, never the outer rectangle" rule. A read-only IK sweep
 start) passed everywhere with X >= 250. local/automation.json now uses one
 region X 250-390, Y -170..180 (about the camera's view); the old regions are
 kept in "previous_xy_regions_mm" and local/automation.before-widen-*.json.
+
+Pickup speed (2026-10-23, operator: a 52 mm pick took 69 s, "snail speed"):
+the button cycle now uses the faster profile in motion_profile.py. Empty-tool
+travel 60 mm/s at 200 mm/s^2 (alignment, approach to floor+15, return);
+final 10 mm in/out 10 mm/s; contact steps still 0.5 mm with the 3-read seal
+check, at 2.5 mm/s; loaded 10 mm lift/lower 10 mm/s; monitored hold 0.5 s.
+Alignment takes one large step (90% of error, <=60 mm) then corrections.
+Other scripts keep their old defaults. This supersedes the 20 mm/s cap note.

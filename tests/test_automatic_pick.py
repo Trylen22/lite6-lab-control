@@ -33,7 +33,7 @@ class FakeRobot:
     def preview_path(self, targets):
         return {"targets": targets}
 
-    def move(self, target, speed):
+    def move(self, target, speed, mvacc=None):
         self.moves.append(target.copy())
         self.speeds.append(speed)
         self.pose = target.copy()
@@ -115,8 +115,12 @@ class AutomaticPickTests(unittest.TestCase):
         robot, calls, result, error, _, _ = self.run_fake(clear_speed=20)
         self.assertIsNone(error)
         self.assertEqual([p[2] for p in robot.moves], [110, 100, 110, 266])
-        self.assertEqual(robot.speeds, [20, 6.6125, 6.6125, 20])
+        # Fast travel, then 10 mm/s for the last 10 mm in and the first out.
+        self.assertEqual(robot.speeds, [20, 10, 10, 20])
         self.assertEqual(calls[0][2]["speed_scale"], 1.3225)
+        # Loaded moves and the monitored hold use the faster button profile.
+        self.assertEqual(calls[0][2]["move_speed"], 10)
+        self.assertEqual(calls[0][2]["hold_seconds"], 0.5)
         self.assertEqual(result["clear_travel_mm_s"], 20)
         phases = [e for e in result["events"] if e["event"] == "phase_started"]
         self.assertTrue(all("elapsed_seconds" in e for e in phases))

@@ -69,6 +69,9 @@ def perform_cycle(
     start_pose=None,
     release_pose=None,
     speed_scale=1.0,
+    move_speed=None,
+    move_mvacc=5,
+    hold_seconds=2,
 ):
     """Execute on an already checked arm; fake-arm tests exercise failure paths.
 
@@ -137,12 +140,13 @@ def perform_cycle(
 
     def move(target, name):
         healthy()
-        event(name, target=target, speed_mm_s=2 * speed_scale, acceleration_mm_s2=5)
+        speed = move_speed or 2 * speed_scale
+        event(name, target=target, speed_mm_s=speed, acceleration_mm_s2=move_mvacc)
         require_zero(
             arm.set_position(
                 *target,
-                speed=2 * speed_scale,
-                mvacc=5,
+                speed=speed,
+                mvacc=move_mvacc,
                 is_radian=False,
                 wait=True,
                 timeout=10,
@@ -176,9 +180,9 @@ def perform_cycle(
         # whether the arm stayed at contact, reached its target, or stopped midway.
         at_contact = False
         move(high, "lift_to_taught_approach")
-        event("hold_started", seconds=2)
+        event("hold_started", seconds=hold_seconds)
         # Inspect health/seal during the hold, rather than sleeping blindly.
-        for _ in range(20):
+        for _ in range(max(1, round(hold_seconds * 10))):
             sleep(0.1)
             healthy()
             if read_value(arm.get_vacuum_gripper(), "hold vacuum feedback") != 1:

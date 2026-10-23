@@ -313,3 +313,10 @@ full descend/return paths): all X >= 250 pass; X 230 fails for Y -60..60
 (close to the base). Camera view from the start pose spans about X 250-485,
 Y -175..+210. Set a single region X 250-390, Y -170..180 (local, ignored);
 readiness immediately reported Ready. Not yet picked on hardware here.
+
+Pickup speed-up: last button pick (52 mm offset) took 69.4 s: aligning 20.3
+(11 x 5 mm hops), approaching 12.1, sealing 12.6 (9 x 0.5 mm steps at 1.4 s),
+lift/hold/place 10.8, returning 12.4. Most time was acceleration 2-10 mm/s^2.
+Operator requested faster. New button profile (motion_profile.py) keeps every
+gate and the 0.5 mm step/3-read seal check; see AGENTS.md for values.
+Estimated ~20-25 s. Local clear_travel_mm_s set to 60. Not yet run here.

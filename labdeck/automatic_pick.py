@@ -17,6 +17,16 @@ from .contact_pick import search_contact
 from .cycle_return import return_to_observation
 from .green_calibrate import observe, save
 from .motion_profile import (
+    ALIGN_GAIN,
+    ALIGN_MAX_STEP_MM,
+    CLEAR_ACCEL_MM_S2,
+    CONTACT_STEP_ACCEL_MM_S2,
+    CONTACT_STEP_MM_S,
+    LOADED_ACCEL_MM_S2,
+    LOADED_MM_S,
+    NEAR_CONTACT_ACCEL_MM_S2,
+    NEAR_CONTACT_MM_S,
+    SEAL_HOLD_SECONDS,
     validate_speed_scale,
     clear_travel_speed,
     CLEARANCE_ABOVE_FLOOR_MM,
@@ -233,16 +243,18 @@ def run_cycle(
                 save(path, record)
                 if np.linalg.norm(error) <= 0.75:
                     break
-                delta = error * 0.6
-                if np.linalg.norm(delta) > 5:
-                    delta *= 5 / np.linalg.norm(delta)
+                # One large step then small corrections, instead of many 5 mm
+                # hops. Each step still re-observes and checks the response.
+                delta = error * ALIGN_GAIN
+                if np.linalg.norm(delta) > ALIGN_MAX_STEP_MM:
+                    delta *= ALIGN_MAX_STEP_MM / np.linalg.norm(delta)
                 travel += np.linalg.norm(delta)
-                if travel > 140:
+                if travel > 450:
                     raise RuntimeError("Alignment travel limit reached")
                 target = pose.copy()
                 target[:2] = (np.array(pose[:2]) + delta).tolist()
                 check_transit(pose, target, profile)
-                robot.move(target, speed=5 * scale)
+                robot.move(target, speed=travel_speed, mvacc=CLEAR_ACCEL_MM_S2)
                 updated = fresh_target()
                 residual = float(
                     np.linalg.norm(
@@ -250,7 +262,9 @@ def run_cycle(
                     )
                 )
                 events.append({"event": "response_check", "residual_px": residual})
-                if residual > 3:
+                # The calibration is linear; allow 10% of a large step's
+                # predicted image motion, never less than the original 3 px.
+                if residual > max(3, 0.1 * float(np.linalg.norm(j @ delta))):
                     raise RuntimeError("Image movement disagrees with calibration")
                 if (
                     np.linalg.norm(aim - updated["center_px"])
@@ -271,11 +285,18 @@ def run_cycle(
                 # retains its demonstrated speed; suction/search starts at +5.
                 clearance = low.copy()
                 clearance[2] += CLEARANCE_ABOVE_FLOOR_MM
-                robot.move(clearance, speed=travel_speed)
+                robot.move(clearance, speed=travel_speed, mvacc=CLEAR_ACCEL_MM_S2)
                 progress("approaching", "Slow approach above the block")
-            robot.move(above, speed=5 * scale)
+            robot.move(above, speed=NEAR_CONTACT_MM_S, mvacc=NEAR_CONTACT_ACCEL_MM_S2)
             progress("sealing", "Suction on before final approach")
-            contact = search_contact(robot.arm, above, events, speed_scale=scale)
+            contact = search_contact(
+                robot.arm,
+                above,
+                events,
+                speed_scale=scale,
+                step_speed=CONTACT_STEP_MM_S,
+                step_mvacc=CONTACT_STEP_ACCEL_MM_S2,
+            )
             if contact is None:
                 raise RuntimeError(
                     "No seal at the depth limit; suction released, no lift"
@@ -291,6 +312,9 @@ def run_cycle(
                 events,
                 release_pose=release,
                 speed_scale=scale,
+                move_speed=LOADED_MM_S,
+                move_mvacc=LOADED_ACCEL_MM_S2,
+                hold_seconds=SEAL_HOLD_SECONDS,
             )
             record["release_pose"] = robot.check()
             if travel_speed > 5 * scale:
@@ -299,9 +323,15 @@ def run_cycle(
                 clearance = record["release_pose"].copy()
                 clearance[2] = low[2] + CLEARANCE_ABOVE_FLOOR_MM
                 progress("returning", "Clearing the block at slow speed")
-                robot.move(clearance, speed=5 * scale)
+                robot.move(
+                    clearance, speed=NEAR_CONTACT_MM_S, mvacc=NEAR_CONTACT_ACCEL_MM_S2
+                )
             record["final_pose"] = return_to_observation(
-                robot, profile["observation_height_mm"], travel_speed, events
+                robot,
+                profile["observation_height_mm"],
+                travel_speed,
+                events,
+                mvacc=CLEAR_ACCEL_MM_S2,
             )
             record["result"] = "completed_at_observation_height_release_verified"
             progress("complete", "Pick & Place complete · back at camera height")

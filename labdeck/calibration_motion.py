@@ -157,7 +157,7 @@ class CalibrationArm:
             raise RuntimeError("Pose changed during planning")
         return {"start": live_start, "segments": segments}
 
-    def move(self, target, speed=5, authorize=None):
+    def move(self, target, speed=5, authorize=None, mvacc=10):
         with urllib.request.urlopen(
             "http://127.0.0.1:8090/health", timeout=1
         ) as response:
@@ -176,7 +176,12 @@ class CalibrationArm:
         if authorize is not None:
             authorize()  # Fresh user intent / hand observation after IK computation.
         code = self.arm.set_position(
-            *target, speed=speed, mvacc=10, is_radian=False, wait=True, timeout=timeout
+            *target,
+            speed=speed,
+            mvacc=mvacc,
+            is_radian=False,
+            wait=True,
+            timeout=timeout,
         )
         if code != 0:
             raise RuntimeError(f"Movement returned {code}; no recovery move")

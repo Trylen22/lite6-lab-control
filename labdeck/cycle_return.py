@@ -3,7 +3,7 @@
 import math
 
 
-def return_to_observation(robot, height_mm, speed_mm_s, events):
+def return_to_observation(robot, height_mm, speed_mm_s, events, mvacc=None):
     """Go straight UP only after the shared live release/health preflight.
 
     The caller invokes this after the pick cycle verified OFF/release outputs
@@ -28,7 +28,10 @@ def return_to_observation(robot, height_mm, speed_mm_s, events):
                 "speed_mm_s": speed_mm_s,
             }
         )
-        robot.move(target, speed=speed_mm_s)
+        if mvacc is None:
+            robot.move(target, speed=speed_mm_s)
+        else:
+            robot.move(target, speed=speed_mm_s, mvacc=mvacc)
     final = robot.check()
     if any(abs(final[i] - target[i]) > 0.3 for i in range(6)):
         raise RuntimeError("Observation return pose not verified")
