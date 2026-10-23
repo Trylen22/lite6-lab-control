@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>How the Lite 6 sees and moves · Louisiana Tech</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+        font-family: "Avenir Next", "Avenir", "Nunito Sans", system-ui, sans-serif;
+      }
+      #stage {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 1920px;
+        height: 1080px;
+        transform-origin: 50% 50%;
+      }
+      #stage canvas {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+      }
+      #player {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 10px 18px 14px;
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
+        color: #f2f5fa;
+        font-size: 14px;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      #player:hover,
+      #player.show {
+        opacity: 1;
+      }
+      #scrub {
+        width: 100%;
+        accent-color: #cb333b;
+      }
+      #player .row {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+      }
+      #player button {
+        padding: 4px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 999px;
+        background: rgba(0, 48, 135, 0.6);
+        color: #fff;
+        font: inherit;
+        cursor: pointer;
+      }
+      #player .keys {
+        margin-left: auto;
+        color: #94a5c4;
+      }
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #c9d3e6;
+        font-size: 20px;
+      }
+    </style>
+    <script type="importmap">
+      { "imports": { "three": "/assets/vendor/three.module.min.js" } }
+    </script>
+    <script src="/assets/lab/kinematics.js"></script>
+    <script type="module" src="/assets/explainer/explainer.js"></script>
+  </head>
+  <body>
+    <div id="loading">Loading the Lite 6…</div>
+    <div id="stage"></div>
+    <div id="player">
+      <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Position in the film" />
+      <div class="row">
+        <button id="play" type="button">Play</button>
+        <span id="clock">0:00 / 0:00</span>
+        <span id="scene-name"></span>
+        <span class="keys">Space play/pause · ←/→ 5 s · n/p scene · r restart</span>
+      </div>
+    </div>
+  </body>
+</html>

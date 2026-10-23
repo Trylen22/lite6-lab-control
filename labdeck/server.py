@@ -255,6 +255,7 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
             path = urlsplit(self.path).path
             assets = {
                 "/": ("index.html", "text/html; charset=utf-8"),
+                "/explainer": ("explainer/index.html", "text/html; charset=utf-8"),
                 "/assets/style.css": ("style.css", "text/css"),
                 "/assets/app.js": ("app.js", "text/javascript"),
                 "/assets/viz.js": ("viz.js", "text/javascript"),

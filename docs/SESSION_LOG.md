@@ -366,3 +366,14 @@ pixel/mm response): 29.5 mm lateral, lens 18 mm along the gripper, ~5° tilt;
 reproduces aim within 1 px and the response within 0.06 px/mm. A free 6-DOF
 fit was exact but ill-conditioned (offset/tilt trade-off), so it was rejected.
 Added a picture-in-picture view from that virtual camera.
+
+Explainer film (assets/explainer, /explainer on the deck; 18 scenes, 4 min 53 s):
+three.js with the real Lite 6 meshes, gripper and fitted camera, on the
+pure-function-of-time contract of Hunt_Project/animationns/html so it renders
+to MP4 (scripts/render_explainer.py, Playwright + ffmpeg). Content uses this
+arm's data: first-calibration samples (10 stops over a 20 mm square; refit
+J ≈ [[0.16,−1.96],[−1.96,−0.21]] px/mm, 0.73 px), the current re-measured
+profile (J ≈ [[0.10,−1.69],[−1.85,−0.12]], 0.67 px fit, 2.0 px holdout), a real
+alignment (104 → 40 → 1.7 → 0.5 mm) and contact search (sealed at z 95.9 on
+step 8), plus the SDK calls (set_position, set_servo_angle, set_vacuum_gripper
+with readback). Note: samples.json predates the current profile; the film says so.
