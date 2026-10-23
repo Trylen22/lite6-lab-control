@@ -27,6 +27,16 @@ class ColorLessons(unittest.TestCase):
         results, _ = detect_color(cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR), "red")
         self.assertEqual(len(results), 2)
 
+    def test_demo_marker_dot_passes_but_cyan_and_table_do_not(self):
+        # HSV values measured from the live marker dot and table (color.py).
+        hsv = np.zeros((240, 320, 3), np.uint8)
+        hsv[:] = (15, 60, 157)  # pinkish table
+        cv2.circle(hsv, (80, 120), 14, (42, 125, 96), -1)  # dim marker, ~615 px²
+        cv2.circle(hsv, (240, 120), 14, (95, 200, 200), -1)  # cyan object
+        results, _ = detect_color(cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR), min_area=300)
+        self.assertEqual(len(results), 1)
+        self.assertAlmostEqual(results[0]["center"][0], 80, delta=1)
+
     def test_white_background_is_not_green(self):
         results, _ = detect_color(np.full((240, 320, 3), 240, np.uint8))
         self.assertEqual(results, [])

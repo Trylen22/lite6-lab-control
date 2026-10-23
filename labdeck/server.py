@@ -43,7 +43,8 @@ class VisionWorkspace:
         self.settings = {
             "mode": "color",
             "preset": "green",
-            "min_area": 800,
+            # The green marker dot is ~600-650 px² at camera height.
+            "min_area": 300,
             "confidence": 0.4,
         }
         self.revision = 0

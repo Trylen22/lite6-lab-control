@@ -297,3 +297,10 @@ Operator confirmed both tab-triggered start-pose moves on hardware (01:12 UTC,
 both landed on target joints). Operator: the arm always uses the same camera;
 removed the camera-session ID match from pickup and workspace preview (a random
 per-process ID, not a measure of the optics or mount). Resolution still checked.
+
+Green detection tuning: pickup reported no marker because the marker dot
+(~29 px across, 560-650 px² at camera height) fell under the 800 px² minimum
+area. Measured dot H 36-47 / S 117-132 / V 92-103 vs table/wood H 13-21.
+Lowered the default minimum area to 300 px² and narrowed green to H 35-85,
+S >= 80 (was H 35-110, S >= 55, JetMax's green/cyan range). All dot pixels
+still pass; the live centroid moved < 1 px. Five live frames: one detection each.

@@ -11,7 +11,11 @@ import numpy as np
 # Hue is 0..179 in OpenCV, whereas saturation and value are 0..255.
 # Red crosses the hue wraparound, so it needs two intervals.
 PRESETS = {
-    "green": [(35, 55, 55, 110, 255, 255)],  # JetMax's broad green/cyan family
+    # Tuned to this demo's green marker dot, measured live at the pickup start
+    # (2026-10-22): H 36-47, S 117-132, V 92-103; the table/wood sit near
+    # H 13-21. Hue stops at 85 so cyan/blue objects no longer count as green;
+    # S >= 80 rejects washed-out greenish surfaces.
+    "green": [(35, 80, 55, 85, 255, 255)],
     "red": [(0, 90, 65, 10, 255, 255), (170, 90, 65, 179, 255, 255)],
     "blue": [(95, 90, 55, 130, 255, 255)],
     "yellow": [(18, 90, 65, 35, 255, 255)],
