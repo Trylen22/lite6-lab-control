@@ -323,5 +323,36 @@
     return segment.samples[i].map((v, k) => v + (segment.samples[i + 1][k] - v) * u);
   }
 
-  return { compile, sample, DEFAULTS, HOME };
+  /**
+   * Vacuum physics for the simulated block, one step at a time.
+   * block: { x, y, z (bottom), held, offset }, tip: cup-tip pose, world:
+   * { size, tableZ, shelf: {min, max} }. Returns "picked", "shelf", "table"
+   * or null. Shared by the Lab view and the tests.
+   */
+  function stepVacuum(block, tip, suction, world) {
+    let event = null;
+    if (suction && !block.held) {
+      const top = block.z + world.size;
+      if (Math.hypot(tip[0] - block.x, tip[1] - block.y) < 15 && Math.abs(tip[2] - top) < 6) {
+        block.held = true;
+        block.offset = [block.x - tip[0], block.y - tip[1], block.z - tip[2]];
+        event = "picked";
+      }
+    }
+    if (block.held && !suction) {
+      block.held = false;
+      const s = world.shelf;
+      const overShelf = s && block.x > s.min[0] && block.x < s.max[0] && block.y > s.min[1] && block.y < s.max[1] && block.z >= s.max[2] - 5;
+      block.z = overShelf ? s.max[2] : world.tableZ;
+      event = overShelf ? "shelf" : "table";
+    }
+    if (block.held) {
+      block.x = tip[0] + block.offset[0];
+      block.y = tip[1] + block.offset[1];
+      block.z = tip[2] + block.offset[2];
+    }
+    return event;
+  }
+
+  return { compile, sample, stepVacuum, DEFAULTS, HOME };
 });

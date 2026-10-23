@@ -43,6 +43,15 @@ const CAMERA = {
   body: [111, 40, 31.3],
 };
 const HOME_BLOCK = [290, 20];
+// Each example starts where it would on the real arm.
+const EXAMPLES = {
+  shelf: {
+    file: "/assets/lab/example-shelf.xml",
+    label: "the Pick to shelf demo",
+    start: [3.46, 20.3, 64.39, -179.48, -42.24, 180.84], // the Color tab's pickup start
+  },
+  vacuum: { file: "/assets/lab/example-vacuum.xml", label: "the Studio vacuum loop", start: [0, 0, 0, 0, 0, 0] },
+};
 const STORE_KEY = "labdeck-lab-workspace";
 
 let workspace = null;
@@ -126,10 +135,7 @@ async function initBlockly() {
     saved = localStorage.getItem(STORE_KEY);
   } catch (_) {}
   if (saved) loadXml(saved, "your last program");
-  else {
-    const res = await fetch("/assets/lab/example-vacuum.xml");
-    if (res.ok) loadXml(await res.text(), "the example: a Studio vacuum loop");
-  }
+  else await loadExample("shelf");
   workspace.addChangeListener((e) => {
     if (!e.isUiEvent) {
       saveLocal();
@@ -319,25 +325,9 @@ function setPose(q) {
   const tip = K.fk(q, [0, 0, TIP_MM, 0, 0, 0]);
   // Vacuum: grab the block when the cup tip touches its top with suction on.
   const b = sim.block;
-  if (sim.suction && !b.held) {
-    const top = [b.x, b.y, b.z + BLOCK_SIZE];
-    if (Math.hypot(tip[0] - top[0], tip[1] - top[1]) < 15 && Math.abs(tip[2] - top[2]) < 6) {
-      b.held = true;
-      b.offset = [b.x - tip[0], b.y - tip[1], b.z - tip[2]];
-      log([{ level: "info", message: "Block picked up." }], true);
-    }
-  }
-  if (b.held && !sim.suction) {
-    b.held = false;
-    const overShelf = b.x > SHELF.min[0] && b.x < SHELF.max[0] && b.y > SHELF.min[1] && b.y < SHELF.max[1] && b.z >= SHELF.max[2] - 5;
-    b.z = overShelf ? SHELF.max[2] : TABLE_Z;
-    log([{ level: "info", message: overShelf ? "Block dropped onto the shelf." : "Block released onto the table." }], true);
-  }
-  if (b.held) {
-    b.x = tip[0] + b.offset[0];
-    b.y = tip[1] + b.offset[1];
-    b.z = tip[2] + b.offset[2];
-  }
+  const event = P.stepVacuum(b, tip, sim.suction, { size: BLOCK_SIZE, tableZ: TABLE_Z, shelf: SHELF });
+  if (event)
+    log([{ level: "info", message: { picked: "Block picked up.", shelf: "Block dropped onto the shelf.", table: "Block released onto the table." }[event] }], true);
   three.block.position.set(b.x, b.y, b.z);
   three.cupTip.material.color.set(sim.suction ? css("--coral") || "#cb333b" : 0x1d2433);
   readout(q, tool);
@@ -513,6 +503,15 @@ async function syncFromArm() {
   }
 }
 
+async function loadExample(name) {
+  const ex = EXAMPLES[name];
+  if (!ex) return;
+  const res = await fetch(ex.file, { cache: "no-store" });
+  if (!res.ok) return log([{ level: "error", message: `Couldn't load ${ex.label}.` }]);
+  sim.start = ex.start.slice();
+  loadXml(await res.text(), `${ex.label} (Ctrl+Z brings back what was here)`);
+}
+
 async function importProject(file) {
   try {
     const { xml, deviceType } = await window.StudioFile.readProject(file);
@@ -549,6 +548,10 @@ function bindControls() {
     resetSim();
   });
   $("lab-export").addEventListener("click", exportProject);
+  $("lab-example").addEventListener("change", (e) => {
+    loadExample(e.target.value);
+    e.target.value = "";
+  });
   $("lab-import").addEventListener("click", () => $("lab-file").click());
   $("lab-file").addEventListener("change", (e) => {
     const file = e.target.files?.[0];

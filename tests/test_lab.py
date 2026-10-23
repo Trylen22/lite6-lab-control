@@ -116,6 +116,38 @@ class LabSimulatorTests(unittest.TestCase):
             self.assertAlmostEqual(a, b, places=6)
         self.assertFalse([f for f in out["findings"] if f["level"] == "error"])
 
+    def test_shelf_demo_picks_the_block_and_leaves_it_on_the_shelf(self):
+        root = ET.parse(ROOT / "assets/lab/example-shelf.xml").getroot()
+        stacks = [tree(b) for b in root.findall(NS + "block")]
+        out = run_node(
+            f"""
+            const K = require('./assets/lab/kinematics.js');
+            try {{ K.setGeometry(require('./local/lab-kinematics.json').joints); }} catch (e) {{}}
+            const P = require('./assets/lab/program.js');
+            // Same world as lab.js: table at the base plane, ~33 mm block.
+            const SHELF = {{ name: 'shelf', min: [-500, -560, 385], max: [600, -255, 410] }};
+            const world = {{ size: 94.35 - 61, tableZ: 0, shelf: SHELF }};
+            const tipOffset = [0, 0, 61, 0, 0, 0];
+            const r = P.compile({json.dumps(stacks)}, {{
+              startJoints: [0, 0, 0, 0, 0, 0], tableZ: 0, obstacle: SHELF, tipOffset }});
+            const block = {{ x: 290, y: 20, z: 0, held: false, offset: [0, 0, 0] }};
+            const events = [];
+            for (const seg of r.segments)
+              for (const q of seg.samples) {{
+                const e = P.stepVacuum(block, K.fk(q, tipOffset), seg.suction, world);
+                if (e) events.push(e);
+              }}
+            console.log(JSON.stringify({{ events, block, findings: r.findings,
+              duration: r.duration, steps: r.segments.length }}));
+            """
+        )
+        self.assertFalse(
+            [f for f in out["findings"] if f["level"] == "error"], out["findings"]
+        )
+        self.assertEqual(out["events"], ["picked", "shelf"])
+        self.assertEqual(out["block"]["z"], 410)
+        self.assertLess(out["block"]["y"], -255)  # over the shelf, robot's right
+
     def test_findings_point_at_the_block(self):
         stacks = [
             {
