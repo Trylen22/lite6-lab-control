@@ -117,3 +117,11 @@ straight up to camera height, rise with the BASE LOCKED, base-only level turn,
 short reach/tilt, release, then the reverse. Waypoints were re-solved onto the
 pickup wrist branch. Start-pose moves now refuse a base swing > 30 deg or a
 wrist turn > 150 deg (e.g. from the shelf, or a hand-jogged wrist branch).
+
+Lab tab (2026-10-23, operator request): Blockly (Studio-compatible blocks) on
+the left, a simulated Lite 6 (three.js + UFACTORY xarm_ros2 meshes) on the
+right. SIMULATION ONLY: assets/lab/* never sends robot commands; it only reads
+telemetry to copy the arm's pose into the sim. Imports/exports Studio .tar.gz
+projects. Kinematics are fitted per arm to the controller's own FK
+(scripts/fit_lab_kinematics.py → ignored local/lab-kinematics.json, 0.38 mm).
+Running student programs on the real arm would be a separate, guarded feature.

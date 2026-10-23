@@ -18,6 +18,7 @@ const pageNames = {
   robot: "Robot telemetry",
   learn: "Learning path",
   system: "System notes",
+  lab: "Lab",
 };
 
 function showPage(name) {

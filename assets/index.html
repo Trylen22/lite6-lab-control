@@ -18,7 +18,16 @@
         if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
       } catch (_) {}
     </script>
+    <script type="importmap">
+      { "imports": { "three": "/assets/vendor/three.module.min.js" } }
+    </script>
     <script defer src="/assets/app.js"></script>
+    <script defer src="/assets/vendor/blockly.min.js"></script>
+    <script defer src="/assets/lab/kinematics.js"></script>
+    <script defer src="/assets/lab/program.js"></script>
+    <script defer src="/assets/lab/blocks.js"></script>
+    <script defer src="/assets/lab/studio-file.js"></script>
+    <script type="module" src="/assets/lab/lab.js"></script>
     <script defer src="/assets/viz.js"></script>
     <script defer src="/assets/tank.js"></script>
   </head>
@@ -34,6 +43,7 @@
         <button class="nav-item" data-page="robot">Telemetry</button>
         <button class="nav-item" data-page="learn">Lessons</button>
         <button class="nav-item" data-page="system">How it works</button>
+        <button class="nav-item" data-page="lab">Lab</button>
       </nav>
       <span class="sr-only" id="breadcrumb">Vision workspace</span>
       <button id="theme-toggle" class="theme-toggle" type="button">Theme: auto</button>
@@ -264,6 +274,51 @@
           <h3>Joint angles</h3>
           <div id="joint-grid" class="joint-grid"></div>
         </section>
+      </section>
+
+      <!-- Lab: block programs run on a simulated Lite 6 only. -->
+      <section class="page lab" id="lab" hidden>
+        <div class="lab-head">
+          <h1>Lab</h1>
+          <p class="lede">
+            Build a program with blocks, then watch a simulated Lite 6 run it.
+            Simulation only: nothing on this page moves the real arm.
+          </p>
+        </div>
+        <div class="lab-toolbar">
+          <button id="lab-run" class="gel">Run</button>
+          <button id="lab-reset" class="gel quiet">Reset</button>
+          <label class="lab-speed">Speed
+            <select id="lab-speed">
+              <option value="0.5">½×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+              <option value="4">4×</option>
+            </select></label>
+          <span class="spacer"></span>
+          <button id="lab-import" class="text-button">Open Studio project…</button>
+          <button id="lab-export" class="text-button">Save for Studio</button>
+          <input id="lab-file" type="file" accept=".tar.gz,.tgz,.gz,.xml" hidden />
+        </div>
+        <p id="lab-status" class="note" role="status">Loading the simulator…</p>
+        <div class="lab-split">
+          <div id="lab-blockly" class="lab-blockly"></div>
+          <div class="lab-right">
+            <div id="lab-view" class="lab-view"></div>
+            <p id="lab-tcp" class="lab-tcp">Tool at —</p>
+            <div class="lab-pose-tools">
+              <button id="lab-add-pose" class="text-button">Add a move to this pose</button>
+              <button id="lab-sync" class="text-button">Start from the real arm's pose</button>
+              <button id="lab-home" class="text-button">Start from home</button>
+            </div>
+            <div id="lab-jog" class="lab-jog" aria-label="Simulated joint angles"></div>
+          </div>
+        </div>
+        <ul id="lab-log" class="lab-log"></ul>
+        <p class="note" id="lab-calibration">
+          Kinematics: UFACTORY's published Lite 6 geometry. The table and shelf
+          positions are estimates for practice.
+        </p>
       </section>
 
       <section class="page" id="learn" hidden>

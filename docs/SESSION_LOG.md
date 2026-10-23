@@ -342,3 +342,14 @@ awesome". The demo is one-way: the operator returns the block to the table by
 hand (the shelf spot is outside camera view and near the reach limit).
 A table pick in between aborted: alignment residual 3.27 px vs a 3 px limit
 on a 15 mm step; tolerance is now max(4 px, 15% of predicted image motion).
+
+2026-10-23 Lab tab: operator asked for Studio-style Blockly with a simulated arm
+for students. Built sim-only. Block types/fields follow UFACTORY's Studio
+converter (xarm/tools/blockly, BSD) and the operator's exported vacuum
+project (tests/data/studio_vacuum_project.xml), which loads and compiles to
+40 joint moves, 30 suction switches and 10 waits. Nominal URDF FK was up to
+10 mm off the controller; a 300-sample read-only fit of joint origins/offsets
+brought holdout error to 0.36 mm / 0.02 deg. Table/shelf geometry in the sim
+is estimated (block top 94.35 mm measured, 40 mm block assumed).
+Morning restart: lite6-lab network profile was down (autoconnect off); camera
+producer restarted; arm reported E-stop error 2 awaiting operator clear.

@@ -208,6 +208,30 @@ class VisionWorkspace:
             stop.wait(0.10)
 
 
+STATIC_TYPES = {
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".png": "image/png",
+    ".stl": "model/stl",
+    ".txt": "text/plain; charset=utf-8",
+    ".xml": "application/xml",
+}
+
+
+def static_asset(path):
+    """Serve read-only files under assets/ (lab, vendor, meshes) by extension.
+
+    The resolved file must stay inside assets/; no listing, no other types.
+    """
+    base = (ROOT / "assets").resolve()
+    target = (base / path.removeprefix("/assets/")).resolve()
+    if base not in target.parents or target.suffix not in STATIC_TYPES:
+        return None
+    if not target.is_file():
+        return None
+    return target.read_bytes(), STATIC_TYPES[target.suffix]
+
+
 def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
     dispatch_lock = threading.Lock()
 
@@ -245,6 +269,16 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
                 self.send_body(
                     200, (ROOT / "assets" / filename).read_bytes(), content_type
                 )
+            elif path.startswith("/assets/") and (static := static_asset(path)):
+                self.send_body(200, *static)
+            elif path == "/api/lab-kinematics":
+                # Per-arm calibrated geometry for the Lab simulator (fitted to
+                # this controller's FK by scripts/fit_lab_kinematics.py).
+                try:
+                    data = json.loads((ROOT / "local/lab-kinematics.json").read_text())
+                    self.send_json(200, {"joints": data["joints"], "fit": data["fit"]})
+                except (OSError, ValueError, KeyError):
+                    self.send_json(200, {"joints": None})
             elif path == "/api/workspace":
                 # Read-only geometry for the dashboard map (robot millimeters).
                 # Display only: nothing here is accepted back as a target.

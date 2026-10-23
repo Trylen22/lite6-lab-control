@@ -1046,11 +1046,173 @@ input[type="range"] {
   color: var(--gel);
 }
 
+/* ---------- lab: blocks + simulator ---------- */
+
+#lab.page {
+  max-width: none;
+}
+
+.lab-head .lede {
+  margin-bottom: 18px;
+}
+
+.lab-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.lab-toolbar .gel {
+  min-height: 46px;
+  min-width: 120px;
+}
+
+.lab-toolbar .text-button {
+  margin: 0;
+}
+
+.lab-speed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+#lab-status {
+  margin: 12px 0 14px;
+}
+
+.lab-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  height: max(560px, calc(100vh - 290px));
+}
+
+.lab-blockly {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: 20px;
+}
+
+.lab-right {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+  min-height: 0;
+}
+
+.lab-view {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: 20px;
+}
+
+.lab-view canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.lab-tcp {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.lab-pose-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+.lab-pose-tools .text-button {
+  margin: 0;
+}
+
+.lab-jog {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 18px;
+}
+
+.jog {
+  display: grid;
+  grid-template-columns: 26px 1fr 58px;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.jog span {
+  color: var(--title);
+  font-weight: 800;
+}
+
+.jog b {
+  justify-self: end;
+  font-weight: 400;
+}
+
+.lab-log {
+  display: grid;
+  gap: 4px;
+  margin: 16px 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.lab-log li {
+  padding: 6px 12px;
+  border-left: 3px solid var(--rule);
+  background: var(--glass);
+  cursor: default;
+}
+
+.lab-log li[tabindex] {
+  cursor: pointer;
+}
+
+.lab-log li.error {
+  border-left-color: var(--coral);
+}
+
+.lab-log li.warning {
+  border-left-color: #fbae40;
+}
+
+/* Blockly's own UI picks up the deck type. */
+.blocklyToolboxCategory .blocklyTreeLabel,
+.blocklyTreeLabel {
+  font-family: var(--body);
+  font-weight: 700;
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 1100px) {
   .deck {
     grid-template-columns: 1fr;
+  }
+  .lab-split {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .lab-blockly {
+    height: 520px;
+  }
+  .lab-view {
+    height: 420px;
   }
   .readings {
     grid-template-columns: repeat(2, minmax(0, 1fr));
