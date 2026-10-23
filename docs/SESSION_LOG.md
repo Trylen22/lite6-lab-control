@@ -292,3 +292,8 @@ used by validated pickups (FK matches target). Joint path both directions:
 max 122 deg (J6), tool tip min z 265.7 mm, radius 227-291 mm, no limits.
 Removed the pickup profile's 2 h expiry (it had lapsed at 00:40 UTC).
 Dashboard restarted; not yet run on hardware at the time of this entry.
+
+Operator confirmed both tab-triggered start-pose moves on hardware (01:12 UTC,
+both landed on target joints). Operator: the arm always uses the same camera;
+removed the camera-session ID match from pickup and workspace preview (a random
+per-process ID, not a measure of the optics or mount). Resolution still checked.

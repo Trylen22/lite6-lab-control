@@ -19,11 +19,8 @@ from .green_calibrate import observe, save
 def preview_extension(min_area=200):
     profile = load_profile()
     observation = observe(min_area=min_area)
-    if (
-        observation["session"] != profile["camera_session"]
-        or observation["resolution"] != profile["resolution"]
-    ):
-        raise RuntimeError("Camera context changed")
+    if observation["resolution"] != profile["resolution"]:
+        raise RuntimeError("Camera resolution changed")
     record = {
         "captured_utc": datetime.now(timezone.utc).isoformat(),
         "observation": observation,

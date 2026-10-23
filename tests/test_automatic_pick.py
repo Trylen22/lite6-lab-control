@@ -40,7 +40,9 @@ class FakeRobot:
 
 
 class AutomaticPickTests(unittest.TestCase):
-    def run_fake(self, seal=True, session="fake-camera", clear_speed=None):
+    def run_fake(
+        self, seal=True, session="fake-camera", clear_speed=None, resolution=None
+    ):
         with tempfile.TemporaryDirectory() as folder, ExitStack() as stack:
             root = Path(folder)
             profile = root / "profile.json"
@@ -60,7 +62,7 @@ class AutomaticPickTests(unittest.TestCase):
                     return_value={
                         "center_px": [330, 60],
                         "session": session,
-                        "resolution": [640, 400],
+                        "resolution": resolution or [640, 400],
                         "sequence": 1,
                     },
                 )
@@ -133,8 +135,13 @@ class AutomaticPickTests(unittest.TestCase):
         self.assertEqual(len(robot.moves), 1)
         self.assertEqual(robot.pose[2], 95)
 
-    def test_camera_session_change_prevents_all_movement(self):
-        robot, calls, result, error, _, _ = self.run_fake(session="different-session")
-        self.assertIn("Camera session changed", error)
+    def test_camera_program_restart_does_not_require_recalibration(self):
+        robot, calls, result, error, _, _ = self.run_fake(session="restarted-camera")
+        self.assertIsNone(error)
+        self.assertTrue(calls)
+
+    def test_camera_resolution_change_prevents_all_movement(self):
+        robot, calls, result, error, _, _ = self.run_fake(resolution=[1280, 800])
+        self.assertIn("resolution changed", error)
         self.assertEqual(robot.moves, [])
         self.assertEqual(calls, [])

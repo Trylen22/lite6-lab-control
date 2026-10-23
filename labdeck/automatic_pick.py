@@ -81,7 +81,6 @@ def load_profile(path=PROFILE):
         profile["resolution"] != [640, 400]
         or np.any(aim < 12)
         or np.any(aim > np.array([640, 400]) - 12)
-        or not profile["camera_session"]
     ):
         raise ValueError("Invalid camera context")
     return profile
@@ -183,11 +182,10 @@ def run_cycle(
 
     def fresh_target():
         ob = observe(min_area=min_area)
-        if (
-            ob["session"] != profile["camera_session"]
-            or ob["resolution"] != profile["resolution"]
-        ):
-            raise RuntimeError("Camera session changed; revalidate calibration")
+        # Same camera, same mount: a restarted camera program (new session
+        # ID) does not change the optics, so only the image format is checked.
+        if ob["resolution"] != profile["resolution"]:
+            raise RuntimeError("Camera resolution changed; revalidate calibration")
         return ob
 
     try:
