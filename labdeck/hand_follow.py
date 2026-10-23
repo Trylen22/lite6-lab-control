@@ -24,7 +24,8 @@ MAX_SESSION_SECONDS = 90
 MAX_RADIUS_DEGREES = 6
 MAX_STEP_DEGREES = 0.3
 FOLLOW_SPEED_DEG_S = 2
-DEAD_ZONE_PX = 25
+DEAD_ZONE_PX = 12
+RESUME_ZONE_PX = 18
 
 
 def hand_target(snapshot, profile, now=None):
@@ -44,8 +45,12 @@ def hand_target(snapshot, profile, now=None):
     if len(hands) != 1:
         raise RuntimeError("Show exactly one open palm")
     hand = hands[0]
-    if hand.get("gesture") != "Open_Palm" or hand.get("confidence", 0) < 0.5:
-        raise RuntimeError("Open palm follows; other gestures pause")
+    # "None" is a gesture-category score, not low hand-presence confidence.
+    # The detector already enforces landmark presence/tracking >=0.65. Let
+    # four clearly extended fingers establish openness even if its canned
+    # classifier has no label. A confident fist still pauses immediately.
+    if hand.get("gesture") == "Closed_Fist" and hand.get("confidence", 0) >= 0.5:
+        raise RuntimeError("Fist pauses following; show an open palm")
     center = np.array(hand["center"], dtype=float)
     points = np.array(hand["landmarks"], dtype=float)
     if (
@@ -85,10 +90,12 @@ class FollowPolicy:
         self.filtered = None
         self.sequence = None
         self.stable = 0
+        self.centered = True
 
     def reset(self):
         self.filtered = None
         self.stable = 0
+        self.centered = True
 
     def target(self, snapshot, pose, now=None):
         try:
@@ -101,14 +108,20 @@ class FollowPolicy:
         self.sequence = sequence
         self.stable += 1
         self.filtered = (
-            center if self.filtered is None else 0.4 * center + 0.6 * self.filtered
+            center if self.filtered is None else 0.3 * center + 0.7 * self.filtered
         )
         check_hand_pose(pose, self.profile)
         if self.stable < 3:
             return None, "Confirming three fresh open-palm frames"
         error = np.array([320, 200]) - self.filtered
-        if np.linalg.norm(error) <= DEAD_ZONE_PX:
+        distance = float(np.linalg.norm(error))
+        if distance <= DEAD_ZONE_PX or (self.centered and distance <= RESUME_ZONE_PX):
+            self.centered = True
             return None, "Palm centered · holding still"
+        self.centered = False
+        # Soft dead zone decelerates near center; hysteresis avoids repeatedly
+        # reversing on a noisy boundary. Physical step/speed caps stay intact.
+        error *= max(0, 1 - DEAD_ZONE_PX / distance)
         delta = 0.12 * np.linalg.solve(self.profile["jacobian_px_per_degree"], error)
         if np.linalg.norm(delta) > MAX_STEP_DEGREES:
             delta *= MAX_STEP_DEGREES / np.linalg.norm(delta)
@@ -153,19 +166,22 @@ class HandFollower:
             return self.data.copy()
 
     def readiness(self, robot):
+        recognized = False
         try:
             profile = self.profile()
-            if (
-                not robot.get("fresh")
-                or robot["values"]["state"] != 2
-                or robot["values"]["errors"] != [0, 0]
-            ):
-                return False, "Robot must be connected and idle"
-            check_hand_pose(robot["values"]["joints"][:6], profile)
             hand_target(self.vision.snapshot(), profile)
-            return True, "Open palm ready · start explicitly to follow"
+            recognized = True
+            if not robot.get("fresh"):
+                return False, "Palm recognized · robot telemetry unavailable"
+            if robot["values"]["state"] != 2 or robot["values"]["errors"] != [0, 0]:
+                return (
+                    False,
+                    f"Palm recognized · robot state {robot['values']['state']}; normal idle required",
+                )
+            check_hand_pose(robot["values"]["joints"][:6], profile)
+            return True, "Open palm recognized · start following"
         except (ValueError, RuntimeError, KeyError, OSError, TypeError) as exc:
-            return False, str(exc)
+            return False, ("Palm recognized · " if recognized else "") + str(exc)
 
     def start(self):
         profile = self.profile()

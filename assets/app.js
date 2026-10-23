@@ -387,10 +387,9 @@ async function refresh() {
     $("follow-start").disabled =
       startingFollow || running || followRunning || !data.follow_ready?.ready;
     $("follow-stop").disabled = !followRunning;
-    $("follow-message").textContent =
-      followRunning || data.follow?.state === "stopped"
-        ? data.follow.message
-        : data.follow_ready?.reason || "Following unavailable";
+    $("follow-message").textContent = followRunning
+      ? data.follow.message
+      : data.follow_ready?.reason || "Following unavailable";
     $("pick-place").disabled =
       startingPickup || running || followRunning || !data.pickup?.ready;
     $("pick-place").textContent = running ? "Cycle running…" : "Pick & Place";

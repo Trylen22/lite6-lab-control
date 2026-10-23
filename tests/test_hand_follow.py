@@ -76,7 +76,7 @@ class FollowPolicyTests(unittest.TestCase):
             "stale",
             "session",
             "edge",
-            "confidence",
+            "collapsed",
         ]:
             sample = frame()
             if problem == "lost":
@@ -91,8 +91,8 @@ class FollowPolicyTests(unittest.TestCase):
                 sample["source"]["session"] = "changed"
             if problem == "edge":
                 sample["detections"][0]["landmarks"][0][0] = -1
-            if problem == "confidence":
-                sample["detections"][0]["confidence"] = 0.2
+            if problem == "collapsed":
+                sample["detections"][0]["landmarks"] = [[220, 200]] * 21
             with self.subTest(problem=problem), self.assertRaises(RuntimeError):
                 self.policy.target(sample, self.pose)
             self.assertEqual(self.policy.stable, 0)
@@ -119,6 +119,27 @@ class FollowPolicyTests(unittest.TestCase):
         ].copy()
         with self.assertRaisesRegex(RuntimeError, "Straighten"):
             self.policy.target(bent, self.pose)
+
+    def test_unclassified_but_straight_open_palm_is_recognized(self):
+        sample = frame()
+        sample["detections"][0].update(gesture="None", confidence=0.92)
+        self.assertIsNone(self.policy.target(sample, self.pose)[0])
+        sample["source"]["sequence"] = 2
+        sample["detections"][0]["landmarks"][8] = sample["detections"][0]["landmarks"][
+            5
+        ].copy()
+        with self.assertRaisesRegex(RuntimeError, "Straighten"):
+            self.policy.target(sample, self.pose)
+
+    def test_soft_centering_slows_and_hysteresis_holds(self):
+        for seq in [1, 2, 3]:
+            target, _ = self.policy.target(frame((340, 200), seq), self.pose)
+        self.assertIsNotNone(target)
+        self.assertLess(abs(target[4] - self.pose[4]), 0.3)
+        self.policy.filtered = None
+        self.assertIsNone(self.policy.target(frame((328, 200), 4), self.pose)[0])
+        self.policy.filtered = None
+        self.assertIsNone(self.policy.target(frame((335, 200), 5), self.pose)[0])
 
     def test_fist_resets_three_frame_gate(self):
         self.policy.target(frame(sequence=1), self.pose)
