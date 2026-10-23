@@ -276,3 +276,9 @@ Jacobian; removed the 2 h expiry and the 90 s cap. Tests include a simulated
 closed loop with 5-tick camera lag converging within 20 px. Restarted the
 dashboard (camera producer reused); readiness reported Ready at state 5.
 Not yet run on hardware at the time of this entry.
+
+Hardware result (servo following, cce3f7b): three operator-run sessions at
+00:50, 00:53 and 00:58 UTC (about 1, 4.6 and 4 minutes) all ended
+returned_to_ready with no faults or tracking errors. Operator: "works much
+better now"; recorded the demo video. The one-hand lock (33baf16) was committed
+during these sessions and was not loaded yet (dashboard not restarted).
