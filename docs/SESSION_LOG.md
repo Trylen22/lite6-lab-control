@@ -320,3 +320,10 @@ lift/hold/place 10.8, returning 12.4. Most time was acceleration 2-10 mm/s^2.
 Operator requested faster. New button profile (motion_profile.py) keeps every
 gate and the 0.5 mm step/3-read seal check; see AGENTS.md for values.
 Estimated ~20-25 s. Local clear_travel_mm_s set to 60. Not yet run here.
+
+Pick -> Shelf: operator hand-traced the path (record_path.py, 472 samples,
+47 s): rise at base 7.7 deg to Z 478, base turn to -77.5 deg with Z 473-500,
+drop at (70, -293, 489), head tilted. Traced on the other wrist branch;
+re-solved top/drop on the pickup branch (FK error < 0.01 mm; drop by damped
+Newton on FK). Read-only preview of all six segments passed (rise Z 266-478
+base locked; turn Z 477-478 base only; reach Z 477-489). Not yet run.

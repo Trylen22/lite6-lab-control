@@ -490,7 +490,8 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
                             403, {"error": "Use the local Pick & Place button"}
                         )
                         return
-                    if patch != {}:
+                    # Only a named, taught destination; never coordinates.
+                    if patch not in ({}, {"destination": "shelf"}):
                         raise ValueError("Pickup accepts no coordinates or settings")
                     if jobs is None:
                         raise ValueError("Pickup worker unavailable")
@@ -500,7 +501,11 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
                                 raise RuntimeError("Stop hand following before pickup")
                             if mover and mover.running():
                                 raise RuntimeError("Arm is moving to a start pose")
-                            job = jobs.start(vision.snapshot(), robot.snapshot())
+                            job = jobs.start(
+                                vision.snapshot(),
+                                robot.snapshot(),
+                                patch.get("destination", "table"),
+                            )
                     except RuntimeError as exc:
                         self.send_json(409, {"error": str(exc)})
                         return

@@ -419,6 +419,7 @@ async function refresh() {
     $("pick-place").disabled =
       startingPickup || running || followRunning || !data.pickup?.ready;
     $("pick-place").textContent = running ? "Cycle running…" : "Pick & Place";
+    $("pick-shelf").disabled = $("pick-place").disabled;
     $("pickup-phase").textContent = running
       ? job.phase.replaceAll("_", " ")
       : job.state === "complete"
@@ -435,6 +436,7 @@ async function refresh() {
   } catch (error) {
     recovering = true;
     $("pick-place").disabled = true;
+    $("pick-shelf").disabled = true;
     $("follow-start").disabled = true;
     followToken = null;
     $("pickup-phase").textContent = "Disconnected";
@@ -498,10 +500,11 @@ refreshCalibration();
 setInterval(refreshCalibration, 3000);
 
 // Only a deliberate click starts hardware work. Never invoke this from poll().
-$("pick-place").addEventListener("click", async () => {
-  if (startingPickup || $("pick-place").disabled) return;
+async function startPickup(button, body) {
+  if (startingPickup || button.disabled) return;
   startingPickup = true;
   $("pick-place").disabled = true;
+  $("pick-shelf").disabled = true;
   $("pickup-phase").textContent = "Starting checks";
   try {
     const response = await fetch("/api/pick-place", {
@@ -510,7 +513,7 @@ $("pick-place").addEventListener("click", async () => {
         "Content-Type": "application/json",
         "X-Labdeck-Action": "pick-place",
       },
-      body: "{}",
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(5000),
     });
     const result = await response.json();
@@ -524,4 +527,10 @@ $("pick-place").addEventListener("click", async () => {
     startingPickup = false;
     await refresh();
   }
-});
+}
+$("pick-place").addEventListener("click", () =>
+  startPickup($("pick-place"), {}),
+);
+$("pick-shelf").addEventListener("click", () =>
+  startPickup($("pick-shelf"), { destination: "shelf" }),
+);

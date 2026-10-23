@@ -36,6 +36,11 @@ MIN_TRANSFER_Z_MM = 250
 TRANSFER_SPEED_DEG_S = 25
 TRANSFER_ACCEL_DEG_S2 = 60
 ARRIVED_DEG = 0.2
+# A start-pose move is one straight joint move, so the base turns WHILE the arm
+# changes height. Near the shelf that is exactly what must not happen, and a
+# hand-jogged wrist may sit on the opposite branch (~180 deg wrist spin).
+MAX_BASE_SWING_DEG = 30
+MAX_WRIST_TURN_DEG = 150
 
 
 class TransferArm(HandServoArm):
@@ -73,6 +78,17 @@ class TransferArm(HandServoArm):
         start = self.joints()
         if np.max(np.abs(np.array(start) - target)) <= ARRIVED_DEG:
             return False
+        change = np.abs(np.array(start) - target)
+        if change[0] > MAX_BASE_SWING_DEG:
+            raise RuntimeError(
+                f"Base would swing {change[0]:.0f}°; bring the arm in front of "
+                "the robot first (e.g. from the shelf)"
+            )
+        if max(change[3], change[5]) > MAX_WRIST_TURN_DEG:
+            raise RuntimeError(
+                "Wrist would spin more than 150°; it is on the other wrist "
+                "branch. Jog it near the start pose in Studio first"
+            )
         self.check_path(start, target)
         self.ready_position_mode()
         if not np.allclose(self.joints(), start, atol=0.1, rtol=0):

@@ -65,6 +65,17 @@ class TransferArmTests(unittest.TestCase):
         self.assertFalse(arm.go(np.array(PICKUP)))
         self.assertEqual(len(sdk.moves), 1)
 
+    def test_big_base_swing_or_wrist_spin_is_refused(self):
+        shelf = [-78.3, 7.9, 98.2, -171.1, -40.6, 181.3]
+        sdk = FakeSDK(shelf)
+        with self.assertRaisesRegex(RuntimeError, "Base would swing"):
+            fake_arm(sdk).go(np.array(PICKUP))
+        jogged = [3.5, 20.3, 64.4, 0.5, 42.2, 0.8]  # same tool pose, other branch
+        sdk = FakeSDK(jogged)
+        with self.assertRaisesRegex(RuntimeError, "Wrist would spin"):
+            fake_arm(sdk).go(np.array(PICKUP))
+        self.assertEqual(sdk.moves, [])
+
     def test_path_that_dips_toward_table_is_refused(self):
         sdk = FakeSDK(HAND, low_dip=True)
         with self.assertRaisesRegex(RuntimeError, "dips below"):

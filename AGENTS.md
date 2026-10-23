@@ -108,3 +108,12 @@ final 10 mm in/out 10 mm/s; contact steps still 0.5 mm with the 3-read seal
 check, at 2.5 mm/s; loaded 10 mm lift/lower 10 mm/s; monitored hold 0.5 s.
 Alignment takes one large step (90% of error, <=60 mm) then corrections.
 Other scripts keep their old defaults. This supersedes the 20 mm/s cap note.
+
+Pick -> Shelf (2026-10-23, operator request and hand-traced path): the deck's
+second button picks the green block and carries it to the shelf drop zone
+(labdeck/shelf_place.py, waypoints in ignored local/shelf-place.json from
+local/taught_poses/shelf-path-*.jsonl). Order is fixed: 10 mm lift + seal hold,
+straight up to camera height, rise with the BASE LOCKED, base-only level turn,
+short reach/tilt, release, then the reverse. Waypoints were re-solved onto the
+pickup wrist branch. Start-pose moves now refuse a base swing > 30 deg or a
+wrist turn > 150 deg (e.g. from the shelf, or a hand-jogged wrist branch).

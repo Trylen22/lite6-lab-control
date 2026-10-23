@@ -16,6 +16,7 @@ from .calibration_motion import CalibrationArm, ROOT
 from .contact_pick import search_contact
 from .cycle_return import return_to_observation
 from .green_calibrate import observe, save
+from .shelf_place import ShelfCarrier, load_shelf
 from .motion_profile import (
     ALIGN_GAIN,
     ALIGN_MAX_STEP_MM,
@@ -157,12 +158,23 @@ class CycleEvents(list):
 
 
 def run_cycle(
-    profile_path=PROFILE, progress=lambda *_: None, min_area=100, execute=False
+    profile_path=PROFILE,
+    progress=lambda *_: None,
+    min_area=100,
+    execute=False,
+    destination="table",
 ):
     """Full preflight per click. One cycle, bounded motion, no enable/reset/retry."""
     if type(min_area) is not int or not 100 <= min_area <= 10000:
         raise ValueError("Invalid detection area")
+    if destination not in ("table", "shelf"):
+        raise ValueError("Unknown destination")
     profile = load_profile(profile_path)
+    if destination == "shelf":
+        from .start_pose import start_joints  # start_pose imports this module
+
+        shelf = load_shelf()
+        pickup_start = start_joints("pickup")
     j = np.array(profile["jacobian_px_per_mm"])
     aim = np.array(profile["cup_aim_px"])
     scale = profile["speed_scale"]
@@ -301,6 +313,14 @@ def run_cycle(
                 raise RuntimeError(
                     "No seal at the depth limit; suction released, no lift"
                 )
+            if destination == "shelf":
+                record["destination"] = "shelf"
+                record["final_pose"] = ShelfCarrier(
+                    robot.arm, events, progress=progress
+                ).run(shelf, profile["observation_height_mm"], pickup_start)
+                record["result"] = "completed_shelf_drop_release_verified"
+                progress("complete", "Block on the shelf · back at pickup start")
+                return record
             lift = contact.copy()
             lift[2] += 10
             release = contact.copy()

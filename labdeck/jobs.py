@@ -75,7 +75,7 @@ class JobManager:
         except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
             return False, str(exc)
 
-    def start(self, vision, robot):
+    def start(self, vision, robot, destination="table"):
         with self.lock:
             if self.data["state"] == "running":
                 raise RuntimeError("A pickup cycle is already running")
@@ -90,12 +90,14 @@ class JobManager:
                 "started_utc": datetime.now(timezone.utc).isoformat(),
             }
             self.worker = threading.Thread(
-                target=self._run, args=(vision["settings"]["min_area"],), daemon=False
+                target=self._run,
+                args=(vision["settings"]["min_area"], destination),
+                daemon=False,
             )
             self.worker.start()
             return self.data.copy()
 
-    def _run(self, min_area):
+    def _run(self, min_area, destination="table"):
         def progress(phase, message):
             with self.lock:
                 self.data.update(phase=phase, message=message)
@@ -106,6 +108,7 @@ class JobManager:
                 progress=progress,
                 min_area=min_area,
                 execute=True,
+                **({"destination": destination} if destination != "table" else {}),
             )
             with self.lock:
                 duration = (
@@ -115,7 +118,12 @@ class JobManager:
                 self.data.update(
                     state="complete",
                     phase="complete",
-                    message="Pick & Place complete · back at camera height" + suffix,
+                    message=(
+                        "Block on the shelf · back at pickup start"
+                        if destination == "shelf"
+                        else "Pick & Place complete · back at camera height"
+                    )
+                    + suffix,
                 )
                 if isinstance(result, dict):
                     self.data.update(
