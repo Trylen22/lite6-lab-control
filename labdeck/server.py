@@ -23,6 +23,9 @@ import numpy as np
 from labdeck.color import PRESETS, detect_color, annotate
 from labdeck.robot import RobotObserver
 from labdeck.yolo import YoloDetector
+from labdeck.display import upright, upright_detections
+from labdeck.hands import HandDetector, draw_hands, MODEL as HAND_MODEL
+from labdeck.hand_follow import HandFollower
 from labdeck.jobs import JobManager
 from labdeck.automatic_pick import load_profile, PROFILE
 
@@ -51,6 +54,8 @@ class VisionWorkspace:
         self.processing_ms = 0
         self.fps = 0
         self.yolo = None
+        self.hands = None
+        self.source = {}
 
     def configure(self, patch):
         """Validate a full change before replacing state; invalid requests do nothing."""
@@ -59,7 +64,7 @@ class VisionWorkspace:
         with self.condition:
             new = {**self.settings, **patch}
             if (
-                new["mode"] not in ("raw", "color", "yolo")
+                new["mode"] not in ("raw", "color", "yolo", "hands")
                 or new["preset"] not in PRESETS
             ):
                 raise ValueError("Choose a supported mode and color preset")
@@ -74,6 +79,8 @@ class VisionWorkspace:
                 raise ValueError("Confidence must be between 0.10 and 0.95")
             if new["mode"] == "yolo" and not MODEL.is_file():
                 raise ValueError("Download the YOLO model before selecting this mode")
+            if new["mode"] == "hands" and not HAND_MODEL.is_file():
+                raise ValueError("Download the hand model before selecting this mode")
             self.settings = new
             self.revision += 1
             # Clear previous results at a mode change. A green box must never be
@@ -97,6 +104,9 @@ class VisionWorkspace:
                 "processing_ms": round(self.processing_ms, 1),
                 "fps": round(self.fps, 1),
                 "model_available": MODEL.is_file(),
+                "hand_model_available": HAND_MODEL.is_file(),
+                "source": self.source.copy(),
+                "updated_monotonic": self.updated,
                 "resolution": [640, 400],
                 "hsv_ranges": PRESETS[self.settings["preset"]],
             }
@@ -110,10 +120,31 @@ class VisionWorkspace:
             with self.condition:
                 settings, revision = self.settings.copy(), self.revision
             try:
-                with opener.open(
-                    self.camera_url + "/snapshot.jpg", timeout=2
-                ) as response:
-                    raw = response.read(2_000_000)
+                source = {}
+                if settings["mode"] == "hands":
+                    # Atomic frame + provenance lets the follow controller reject
+                    # producer restarts, repeated frames and stale source pixels.
+                    import base64
+
+                    with opener.open(
+                        self.camera_url + "/observation.json", timeout=2
+                    ) as response:
+                        packet = json.load(response)
+                    raw = base64.b64decode(packet["jpeg_base64"])
+                    source = {
+                        key: packet[key]
+                        for key in ("session", "sequence", "received_monotonic")
+                    }
+                    if (
+                        not packet["fresh"]
+                        or time.monotonic() - source["received_monotonic"] > 0.5
+                    ):
+                        raise ValueError("Hand source frame is stale")
+                else:
+                    with opener.open(
+                        self.camera_url + "/snapshot.jpg", timeout=2
+                    ) as response:
+                        raw = response.read(2_000_000)
                 image = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
                 if image is None:
                     raise ValueError("Camera producer returned an invalid image")
@@ -128,19 +159,33 @@ class VisionWorkspace:
                     if self.yolo is None:
                         self.yolo = YoloDetector(MODEL)
                     detections = self.yolo.detect(image, settings["confidence"])
+                elif settings["mode"] == "hands":
+                    if self.hands is None:
+                        self.hands = HandDetector()
+                    detections = self.hands.detect(image)
+                display_image = upright(image)
                 rendered = (
-                    annotate(image, detections) if settings["mode"] != "raw" else image
+                    annotate(
+                        display_image,
+                        upright_detections(detections, image.shape[1], image.shape[0]),
+                    )
+                    if settings["mode"] in ("color", "yolo")
+                    else display_image
                 )
+                if settings["mode"] == "hands":
+                    rendered = draw_hands(image, detections)
                 _, encoded = cv2.imencode(
                     ".jpg", rendered, [cv2.IMWRITE_JPEG_QUALITY, 85]
                 )
-                images = {"annotated": encoded.tobytes(), "raw": raw}
+                _, raw_display = cv2.imencode(".jpg", display_image)
+                images = {"annotated": encoded.tobytes(), "raw": raw_display.tobytes()}
                 if mask is not None:
-                    _, encoded_mask = cv2.imencode(".jpg", mask)
+                    _, encoded_mask = cv2.imencode(".jpg", upright(mask))
                     images["mask"] = encoded_mask.tobytes()
                 now = time.monotonic()
                 with self.condition:
                     if revision == self.revision:
+                        self.source = source
                         self.images = images
                         self.detections = detections
                         self.sequence += 1
@@ -161,7 +206,9 @@ class VisionWorkspace:
             stop.wait(0.10)
 
 
-def make_handler(vision, robot, stop, jobs=None):
+def make_handler(vision, robot, stop, jobs=None, follower=None):
+    dispatch_lock = threading.Lock()
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
@@ -257,6 +304,16 @@ def make_handler(vision, robot, stop, jobs=None):
                         "message": "Pickup worker unavailable",
                     }
                 )
+                follow_state = (
+                    follower.snapshot()
+                    if follower
+                    else {"state": "unavailable", "message": "Following unavailable"}
+                )
+                follow_ready, follow_reason = (
+                    follower.readiness(robot_state)
+                    if follower
+                    else (False, "Following unavailable")
+                )
                 ready, reason = (
                     jobs.readiness(vision_state, robot_state)
                     if jobs
@@ -269,8 +326,15 @@ def make_handler(vision, robot, stop, jobs=None):
                         "robot": robot_state,
                         "motion_available": jobs is not None,
                         "job": job,
+                        "follow": follow_state,
+                        "follow_ready": {
+                            "ready": follow_ready and job["state"] != "running",
+                            "reason": follow_reason,
+                        },
                         "pickup": {
-                            "ready": ready and job["state"] != "running",
+                            "ready": ready
+                            and job["state"] != "running"
+                            and follow_state["state"] != "running",
                             "reason": reason,
                         },
                         "phase": "Green pickup workspace",
@@ -323,7 +387,13 @@ def make_handler(vision, robot, stop, jobs=None):
         def do_POST(self):
             # Separate host-only settings from the explicit one-cycle action.
             # There are no arbitrary coordinates, reset/enable or raw SDK routes.
-            if self.path not in ("/api/vision", "/api/pick-place"):
+            if self.path not in (
+                "/api/vision",
+                "/api/pick-place",
+                "/api/follow/start",
+                "/api/follow/stop",
+                "/api/follow/heartbeat",
+            ):
                 self.send_json(
                     404, {"error": "No such action; robot commands are unavailable"}
                 )
@@ -339,6 +409,35 @@ def make_handler(vision, robot, stop, jobs=None):
                 if self.headers.get_content_type() != "application/json":
                     raise ValueError("Content-Type must be application/json")
                 patch = json.loads(self.rfile.read(size))
+                if self.path.startswith("/api/follow/"):
+                    if (
+                        self.headers.get("X-Labdeck-Action") != "hand-follow"
+                        or self.headers.get("Sec-Fetch-Site") == "cross-site"
+                    ):
+                        self.send_json(403, {"error": "Use local follow controls"})
+                        return
+                    if follower is None:
+                        raise ValueError("Following unavailable")
+                    action = self.path.rsplit("/", 1)[-1]
+                    if action == "heartbeat":
+                        if not isinstance(patch, dict) or set(patch) != {"token"}:
+                            raise ValueError("Expected follow session token")
+                        state = follower.heartbeat(patch["token"])
+                    else:
+                        if patch != {}:
+                            raise ValueError("Follow controls accept no coordinates")
+                        if action == "stop":
+                            state = follower.stop()
+                        else:
+                            with dispatch_lock:
+                                if jobs and jobs.snapshot()["state"] == "running":
+                                    raise ValueError("Pickup cycle active")
+                                ready, reason = follower.readiness(robot.snapshot())
+                                if not ready:
+                                    raise ValueError(reason)
+                                state = follower.start()
+                    self.send_json(200, state)
+                    return
                 if self.path == "/api/pick-place":
                     # Custom header forces a browser cross-origin preflight;
                     # this loopback server supplies no permissive CORS response.
@@ -355,13 +454,18 @@ def make_handler(vision, robot, stop, jobs=None):
                     if jobs is None:
                         raise ValueError("Pickup worker unavailable")
                     try:
-                        job = jobs.start(vision.snapshot(), robot.snapshot())
+                        with dispatch_lock:
+                            if follower and follower.snapshot()["state"] == "running":
+                                raise RuntimeError("Stop hand following before pickup")
+                            job = jobs.start(vision.snapshot(), robot.snapshot())
                     except RuntimeError as exc:
                         self.send_json(409, {"error": str(exc)})
                         return
                     self.send_json(202, job)
                 else:
                     vision.configure(patch)
+                    if follower and vision.snapshot()["settings"]["mode"] != "hands":
+                        follower.stop()
                     self.send_json(200, vision.snapshot())
             except (ValueError, TypeError) as exc:
                 self.send_json(400, {"error": str(exc)})
@@ -384,10 +488,11 @@ def main():
     robot = RobotObserver(robot_ip)
     stop = threading.Event()
     jobs = JobManager()
+    follower = HandFollower(vision)
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
     server = ThreadingHTTPServer(
-        ("127.0.0.1", args.port), make_handler(vision, robot, stop, jobs)
+        ("127.0.0.1", args.port), make_handler(vision, robot, stop, jobs, follower)
     )
     workers = [
         threading.Thread(target=vision.run, args=(stop,), daemon=True),
@@ -403,6 +508,7 @@ def main():
     try:
         stop.wait()
     finally:
+        follower.join()
         jobs.wait_for_completion()
         stop.set()
         with vision.condition:

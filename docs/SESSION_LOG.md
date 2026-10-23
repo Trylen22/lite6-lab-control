@@ -221,3 +221,49 @@ less time than the earlier 75.39 s near-aligned run, not a controlled comparison
 with the 105.05 s long-retarget cycle. 62 offline tests pass; Ruff and JS syntax
 checks pass. Restarted dashboard only when idle, reused camera producer, restored
 green/min-area-200 settings. No extra physical cycle during UI verification.
+
+## 2026-10-23 — Hand puppy, upright view and wrist calibration
+
+Built a local MediaPipe 0.10.35 landmark/gesture adapter with pinned version-1
+model/hash; no weights or frames committed. Replaced overlapping OpenCV wheels
+with one pinned contrib distribution. Added hand mode, skeleton/palm/gesture
+overlay, explicit Start/Stop, browser ownership heartbeat, a bounded worker,
+controller lease and pickup exclusion.
+
+Operator identified inverted view and chose a forward-facing demo pose. Rotated
+dashboard pixels/overlays 180° while preserving producer/control coordinates.
+Browser screenshot verified an upright user and readable labels. A same-frame
+comparison later showed native upside-down inference gave None while upright
+inference gave Open_Palm; changed model input to upright and mapped outputs
+back to sensor pixels.
+
+Live controller reported stopped state 5, normal position mode, enabled/braked
+motors, no fault/queue and released suction. Operator explicitly finished jogging
+and authorized ready-state transition/calibration. State became idle 2 without
+pose movement; local resume record retained. Dashboard process had stopped;
+restarted it detached with ignored logging while reusing the camera producer.
+
+Several 2 mm translation experiments rejected weak/noisy scene measurements.
+Returns from declared checkpoints were separately rechecked/planned. Switched
+the first demo to small wrist turns: clearer angular response and puppy-like
+centering with base/shoulder joints fixed. Excluded the moving person, fitted a
+projective static-scene warp, acquired settled windows and refreshed per-probe
+references. Angular calibration uses a 2 px drift/holdout limit (25 px follow
+dead zone); this differs from grasp-position calibration. Both wrist directions
+passed; holdout 0.6567 px; return checks 0.7623, 1.3014, 0.5737, 0.4825 px.
+Nine sampled angular-bound previews passed. The ignored hand profile is separate
+from pickup geometry.
+
+Operator started the first follow session at 00:28 UTC. Live trace showed 17
+bounded turns early in the session with fixed base/shoulder and zero faults.
+Gesture scores around 0.60 initially prevented starting despite clearly straight
+fingers. Prepared a combined Open_Palm >=0.50 + explicit four-finger angle gate,
+still requiring three fresh frames; not restarted during the active trial.
+
+The first session ended at its 90-second limit after 37 measured joint-target
+turns. Non-follow joints had zero target delta; maximum per-target angular
+step about 0.30003° including encoder/rounding differences. Operator reported
+“worked kind of,” with choppy/minimal movement and wanted larger fluid base/arm
+behavior. This is evidence for a wrist prototype, not completion of the full
+puppy-demo objective. Next work: continuous control and base participation,
+with a separate checked envelope and explicit controller-mode handoff if needed.

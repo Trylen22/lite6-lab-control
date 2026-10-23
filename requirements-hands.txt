@@ -1,0 +1,3 @@
+# Optional local hand/gesture inference; no audio or webcam capture is opened.
+-r requirements-deck.txt
+mediapipe==0.10.35

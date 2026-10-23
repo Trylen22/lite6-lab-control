@@ -196,3 +196,42 @@ Cycle traces include monotonic event times, `total_seconds` and `phase_seconds`.
 The dashboard reports measured duration after successful completion. Compare
 like starting positions; a cycle that begins aligned is not a fair measurement
 of faster long-distance visual alignment.
+
+## Hand puppy demo
+
+Install the optional local detector and explicitly download its pinned model:
+
+```bash
+.venv/bin/python -m pip install -r requirements-hands.txt
+.venv/bin/python scripts/download_hands.py
+```
+
+Select **Hand puppy** to see 21 landmarks, palm center and gesture labels. The
+dashboard view is rotated 180° for this mounting; inference/controller pixels
+and the producer's native stream remain unchanged. Boxes, labels, masks and
+the saved pickup reticle are transformed only for display. Rotating a display
+does not authorize moving the physical camera or reusing a fit at a new wrist.
+
+The forward-facing demo needs its own ignored `local/hand-follow.json`. The
+read-only default `python -m labdeck.hand_calibrate` previews small wrist turns.
+Only an explicitly supervised `--execute --space-clear` measures ±1° on wrist
+joints 4/5, checks return-to-origin and a holdout, then saves an independent
+wrist-follow profile. `--roi` and `--exclude-roi` select static scene features
+in native sensor pixels, excluding the moving person. This never overwrites
+pickup calibration. Calibration can fail; do not bypass its checks.
+
+Start following is an explicit action. Keep this tab visible and one open palm
+fully in view, clear of the arm and camera. A fist, missing/ambiguous/stale hand
+or an image edge prevents another turn. Three fresh open-palm frames, a 25 px
+dead zone and smoothing reduce jitter. Turns are capped at 0.3° and 2°/s, within
+±5° of the taught wrist anchor and 6° total angular displacement from session
+start. Sessions last at most 90 seconds. Base, shoulder and final wrist-roll
+joints remain fixed. The camera makes small head-like turns, with no suction
+or approach toward the hand; no hand depth/contact-separation claim is made.
+
+Stop following prevents the next turn; at most the current short turn finishes.
+It is not an emergency stop. Browser heartbeats expire after 1.5 s, hidden pages
+request stop, and shutdown ends following. Page loads/GET status do not renew
+intent. Pickup and hand following cannot run together. Suction stays released.
+Live physical follow validation is recorded in STATUS, separately from offline
+policy/HTTP checks and successful hand-model inference.

@@ -10,6 +10,9 @@ let pending = false;
 let initialized = false;
 let recovering = false;
 let startingPickup = false;
+let followToken = null;
+let followRunning = false;
+let startingFollow = false;
 const pageNames = {
   workspace: "Vision workspace",
   robot: "Robot telemetry",
@@ -102,6 +105,10 @@ function telemetry(robot) {
 }
 function setModePresentation(mode) {
   currentMode = mode;
+  $("hand-controls").hidden = mode !== "hands";
+  $("calibration-summary").hidden = mode === "hands";
+  $("pickup-controls").hidden = mode === "hands";
+  if (mode === "hands") $("cup-aim-guide").hidden = true;
   document.querySelectorAll("[data-mode]").forEach((b) => {
     b.classList.toggle("selected", b.dataset.mode === mode);
     b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
@@ -114,6 +121,7 @@ function setModePresentation(mode) {
     color: "Color / HSV",
     raw: "Raw camera",
     yolo: "YOLOX-Nano",
+    hands: "Hands / gestures",
   }[mode];
   $("lesson-intro").textContent =
     mode === "yolo"
@@ -145,11 +153,24 @@ function setModePresentation(mode) {
       : mode === "raw"
         ? "No detector runs in raw mode."
         : "Clean the mask and reject small or narrow regions.";
+  if (mode === "hands") {
+    $("lesson-intro").textContent =
+      "Follow a palm through local hand landmarks and gesture recognition.";
+    $("step-two-title").textContent = "Find 21 hand landmarks";
+    $("step-two-body").textContent =
+      "A local model finds finger joints and a palm center.";
+    $("step-three-title").textContent = "Recognize the gesture";
+    $("step-three-body").textContent =
+      "Open palm follows; a fist or missing hand pauses commands.";
+  }
   $("view-caption").textContent = maskVisible
     ? "HSV THRESHOLD MASK"
-    : { color: "COLOR OVERLAY", raw: "RAW COLOR", yolo: "YOLO OBJECT OVERLAY" }[
-        mode
-      ];
+    : {
+        color: "COLOR OVERLAY",
+        raw: "RAW COLOR",
+        yolo: "YOLO OBJECT OVERLAY",
+        hands: "HAND LANDMARKS",
+      }[mode];
 }
 function changeStreamView() {
   $("camera-image").src =
@@ -216,6 +237,62 @@ $("confidence").addEventListener(
 $("confidence").addEventListener("change", () =>
   configure({ confidence: Number($("confidence").value) / 100 }),
 );
+
+// Only this page's explicit Start response grants heartbeat ownership. Reading
+// status never renews it. A closed/disconnected/hidden page cannot keep following.
+async function followAction(action, body = {}) {
+  const response = await fetch(`/api/follow/${action}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Labdeck-Action": "hand-follow",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(2000),
+    keepalive: action === "stop",
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "Follow request failed");
+  return result;
+}
+async function stopFollowing() {
+  followToken = null;
+  try {
+    await followAction("stop");
+  } catch (error) {
+    $("follow-message").textContent = error.message;
+  }
+}
+$("follow-start").addEventListener("click", async () => {
+  startingFollow = true;
+  $("follow-start").disabled = true;
+  try {
+    const result = await followAction("start");
+    followToken = result.token;
+  } catch (error) {
+    $("follow-message").textContent = error.message;
+  } finally {
+    startingFollow = false;
+  }
+});
+$("follow-stop").addEventListener("click", stopFollowing);
+async function renewFollow() {
+  if (followToken) {
+    try {
+      await followAction("heartbeat", { token: followToken });
+    } catch {
+      followToken = null;
+    }
+  }
+  setTimeout(renewFollow, 400);
+}
+renewFollow();
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && followToken) stopFollowing();
+});
+window.addEventListener("pagehide", () => {
+  if (followToken) stopFollowing();
+});
 
 async function refresh() {
   try {
@@ -286,7 +363,9 @@ async function refresh() {
         ? `(${item.center.join(", ")}) px`
         : `${item.bbox.join(", ")} px`;
       row.append(
-        cell(item.label),
+        cell(
+          item.gesture ? `${item.handedness} / ${item.gesture}` : item.label,
+        ),
         cell(position),
         cell(
           item.confidence == null
@@ -303,7 +382,17 @@ async function refresh() {
       message: "Pickup unavailable",
     };
     const running = job.state === "running";
-    $("pick-place").disabled = startingPickup || running || !data.pickup?.ready;
+    followRunning = data.follow?.state === "running";
+    if (!followRunning) followToken = null;
+    $("follow-start").disabled =
+      startingFollow || running || followRunning || !data.follow_ready?.ready;
+    $("follow-stop").disabled = !followRunning;
+    $("follow-message").textContent =
+      followRunning || data.follow?.state === "stopped"
+        ? data.follow.message
+        : data.follow_ready?.reason || "Following unavailable";
+    $("pick-place").disabled =
+      startingPickup || running || followRunning || !data.pickup?.ready;
     $("pick-place").textContent = running ? "Cycle running…" : "Pick & Place";
     $("pickup-phase").textContent = running
       ? job.phase.replaceAll("_", " ")
@@ -319,6 +408,8 @@ async function refresh() {
   } catch (error) {
     recovering = true;
     $("pick-place").disabled = true;
+    $("follow-start").disabled = true;
+    followToken = null;
     $("pickup-phase").textContent = "Disconnected";
     $("pickup-message").textContent =
       "Waiting for the local dashboard. Closing the page does not stop an active cycle.";
@@ -358,10 +449,10 @@ async function refreshCalibration() {
     });
     const fit = await response.json();
     const guide = $("cup-aim-guide");
-    guide.hidden = !fit.aim_px;
+    guide.hidden = !fit.aim_px || currentMode === "hands";
     if (fit.aim_px) {
-      guide.style.left = `${(100 * fit.aim_px[0]) / fit.resolution[0]}%`;
-      guide.style.top = `${(100 * fit.aim_px[1]) / fit.resolution[1]}%`;
+      guide.style.left = `${(100 * (fit.resolution[0] - 1 - fit.aim_px[0])) / fit.resolution[0]}%`;
+      guide.style.top = `${(100 * (fit.resolution[1] - 1 - fit.aim_px[1])) / fit.resolution[1]}%`;
     }
     $("calibration-detail").textContent =
       fit.status === "tabletop_profile"

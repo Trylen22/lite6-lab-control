@@ -158,3 +158,33 @@ include connection/preflight and return; phase totals distinguish alignment,
 approach, seal search, loaded handling and return. `JobManager` carries the
 measured total into the completion message. Offline fake-controller tests
 verify the speed separation and failure paths before hardware trials.
+
+## Hands, display frame and intent
+
+The optional MediaPipe worker consumes atomic producer observations with session,
+sequence and monotonic source timestamps. Its outputs remain in native sensor
+pixels. Display helpers rotate pixels/overlays 180° without altering detections
+used by controller math. Hand inference, color and YOLO share one camera owner.
+
+`hand_calibrate.py` previews/executes supervised ±1° turns on wrist joints 4/5,
+measures image response, checks a holdout and previews the bounded angular grid.
+`hand_space.py` validates an independent expiring profile. Pickup geometry stays
+separate. `HandWristArm` checks joint limits and forward-kinematics TCP displacement;
+only these wrist joints can change and each command is at most 1° (follow uses
+0.3°). Base/shoulder/wrist-roll joints stay fixed. The scene-flow fit is projective,
+using static features around the moving person. Scene depth is not hand depth;
+follow uses low-gain capped image-error corrections.
+
+`HandFollower` requires an explicit POST start. A token returned only from that
+start is retained by its initiating browser for POST heartbeats; polling status
+does not create intent. Same-origin/action-header checks protect follow routes
+as they do pickup. A dispatch lock excludes simultaneous job starts, and the
+SDK motion lease excludes cooperating CLI controllers. Every short move checks
+release/health, boundaries, IK, then fresh hand and intent again before sending.
+Unexpected manual movement ends the session. Lost/non-open hand pauses new
+commands; expired browser intent or Stop ends the worker without auto-return.
+
+Routes: `/api/follow/start`, `/api/follow/stop`, `/api/follow/heartbeat`. No route
+accepts arbitrary coordinates or changes controller enable/mode/load settings.
+The maximum current step can finish after a software stop; use physical E-stop
+for an emergency. The server stops following before shutdown.

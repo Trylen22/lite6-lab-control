@@ -45,7 +45,7 @@
         </div>
         <div class="sidebar-bottom">
           <span class="dot neutral"></span> Supervised lab session
-          <small>One cycle per click</small>
+          <small>Explicit motion controls</small>
         </div>
       </aside>
       <main>
@@ -55,7 +55,7 @@
             ><span id="breadcrumb">Vision workspace</span>
           </div>
           <span class="session-pill"
-            ><span class="dot"></span> GREEN PICK & PLACE</span
+            ><span class="dot"></span> VISION & ROBOT CONTROL</span
           >
         </header>
         <div class="content">
@@ -113,7 +113,9 @@
                   ><button class="selected" data-mode="color">
                     Color detection</button
                   ><button data-mode="yolo">
-                    YOLO objects <span>CPU</span>
+                    YOLO objects <span>CPU</span></button
+                  ><button data-mode="hands">
+                    Hand puppy <span>LOCAL</span>
                   </button>
                 </div>
                 <div class="camera-stage">
@@ -137,7 +139,7 @@
                     Waiting for a fresh camera frame…
                   </div>
                 </div>
-                <div class="pickup-controls">
+                <div class="pickup-controls" id="pickup-controls">
                   <button id="pick-place" class="pickup-button" disabled>
                     Pick &amp; Place
                   </button>
@@ -153,7 +155,26 @@
                     E-stop for an immediate stop.
                   </p>
                 </div>
-                <div class="calibration-summary">
+                <div id="hand-controls" class="pickup-controls" hidden>
+                  <button id="follow-start" class="pickup-button" disabled>
+                    Start following
+                  </button>
+                  <button id="follow-stop" disabled>Stop following</button>
+                  <div class="pickup-status" role="status" aria-live="polite">
+                    <strong>Hand puppy · wrist following</strong>
+                    <span id="follow-message"
+                      >Show one open palm fully inside the image.</span
+                    >
+                  </div>
+                  <p>
+                    Open palm follows · fist pauses · no suction.<br />
+                    Keep your hand clear of the arm and camera. Small wrist
+                    turns within ±5°; stop ends further commands after the
+                    current short turn. Use the physical E-stop for an immediate
+                    stop.
+                  </p>
+                </div>
+                <div class="calibration-summary" id="calibration-summary">
                   <strong>Green calibration</strong>
                   <p id="calibration-detail">
                     Waiting for the tabletop profile.
@@ -299,7 +320,7 @@
                     <thead>
                       <tr>
                         <th>CANDIDATE</th>
-                        <th>POSITION / BOX</th>
+                        <th>SENSOR PX / BOX</th>
                         <th>SCORE / AREA</th>
                       </tr>
                     </thead>

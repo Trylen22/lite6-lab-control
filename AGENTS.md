@@ -70,3 +70,15 @@ approach/initial retreat and all contact/alignment/loaded speeds remain unchange
 The local profile selects that rate; old profiles retain legacy speed. Trial
 total 47.52 s (near-aligned start). Do not apply this rate to loaded/contact
 motion or raise the 20 mm/s cap without a concrete new speed-tuning request.
+
+Hand puppy work is authorized. The operator selected a forward-facing pose and
+explicitly authorized resuming stopped state 5 at that pose; the one ready-state
+transition completed without motion. Do not repeat it automatically. The first
+hand demo now uses wrist joints 4/5, not the failed tiny-translation prototype.
+Only these joints may change, at <=0.3° follow steps and <=2°/s, within the
+validated ±5° anchor bounds. Base/shoulder/wrist-roll remain fixed; suction is
+released. The independent `local/hand-follow.json` must stay ignored. The
+operator starts following explicitly; a browser heartbeat, fresh open-palm
+frames, geometry/range/SDK checks and stop controls govern each turn. Do not
+restart the dashboard during an active follow session. Display/model input may
+be upright, but published controller landmarks remain native sensor pixels.

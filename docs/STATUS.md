@@ -109,3 +109,38 @@ Added monotonic event/phase durations and completion time in UI job messages.
 62 offline tests pass, including fast/slow phase separation and failed-seal
 behavior. Dashboard reloaded after idle verification; camera session reused.
 No second faster pickup was issued.
+
+## Hand puppy development — 2026-10-23 UTC
+
+The operator chose a forward-facing wrist pose for the demo. It differs from
+the pickup pose, so tabletop XY motion is correctly unavailable there. The
+operator explicitly authorized resuming the stopped controller at that pose;
+read-only checks found six enabled/braked motors, no queued commands or faults,
+and released suction. Ready-state transition left the pose unchanged.
+
+Added local MediaPipe landmarks/gestures and an upright dashboard image. The
+model also receives upright pixels; its landmarks are mapped back to native
+sensor coordinates before controller math. This fixes gesture recognition
+without silently changing calibrated image directions.
+
+Tiny translational scene probes were too weak/inconsistent for this view. The
+first puppy demo instead uses wrist joints 4/5; base/shoulder/wrist-roll joints
+stay fixed. One supervised wrist calibration passed both directions, returned
+to its encoder anchor and passed an independent holdout at **0.657 px**. Maximum
+image return drift was 1.301 px, within the 2 px angular-centering criterion.
+A 3×3 wrist-range preview passed joint limits and sampled FK displacement.
+This is a separate expiring profile; pickup calibration was not overwritten.
+
+First operator-started following session produced real bounded wrist turns,
+with no reported controller faults and fixed base/shoulder joints. Its detailed
+result and operator feedback are recorded in the session log after it ends.
+No grasp, hand depth or autonomous gesture pickup is implied by this demo.
+
+75 offline tests currently pass, including heartbeat expiry, lost/fist/multiple
+hand, duplicate frames, bounded turns, stop during planning, HTTP intent checks,
+pickup/follow exclusion, display rotation and wrist-only motion limits.
+
+Operator feedback after 37 wrist turns: partly worked, but choppy/minimal;
+wanted fluid base/arm participation. The broader puppy-demo goal remains active.
+The current prototype does not yet meet that behavior; continuous control and
+a checked base-motion range are next.

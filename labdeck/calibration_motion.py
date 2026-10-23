@@ -157,7 +157,7 @@ class CalibrationArm:
             raise RuntimeError("Pose changed during planning")
         return {"start": live_start, "segments": segments}
 
-    def move(self, target, speed=5):
+    def move(self, target, speed=5, authorize=None):
         with urllib.request.urlopen(
             "http://127.0.0.1:8090/health", timeout=1
         ) as response:
@@ -173,6 +173,8 @@ class CalibrationArm:
         # SDK settling. A fixed 8 s timeout is insufficient for 20 mm at 2 mm/s.
         distance = float(np.linalg.norm(np.array(target[:3]) - plan["start"][:3]))
         timeout = max(8, distance / speed + 3)
+        if authorize is not None:
+            authorize()  # Fresh user intent / hand observation after IK computation.
         code = self.arm.set_position(
             *target, speed=speed, mvacc=10, is_radian=False, wait=True, timeout=timeout
         )

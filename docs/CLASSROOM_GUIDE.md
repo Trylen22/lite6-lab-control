@@ -151,3 +151,22 @@ Why should one global speed multiplier not control all of them? Compare
 `phase_seconds` across similar runs and explain why travel speed, acceleration,
 frame acquisition, IK checks, seal confirmation and deliberate hold all affect
 the total. A speed command is not a promise of constant achieved speed.
+
+## Lesson: the hand-follow feedback loop
+
+Read `hands.py` (model output), `display.py` (display-only image transform),
+`hand_space.py` (separate wrist bounds), and `hand_follow.py` (intent and policy).
+Why must the UI's 180° view rotation leave controller pixels unchanged? Why is
+a changed wrist pose different from a changed display?
+
+Trace one Start request and browser heartbeat through three fresh open-palm
+frames, smoothing, dead zone, bounded correction, IK and a final intent check.
+Use `test_hand_follow.py` and `test_hand_follow_http.py` to explore a fist,
+multiple hands, camera restart, stale frame, lost heartbeat, boundary, stop
+during planning and pickup conflict. No physical hardware is used in those tests.
+
+Hand calibration uses static-scene optical flow. A camera turn produces a
+projective image warp. Compare a median off-center flow with a fitted spatial
+warp evaluated at the image center; neither yields measured hand depth.
+Discuss what the independent holdout and return-to-origin checks establish
+and why an image fit alone cannot establish clearance around a person.
