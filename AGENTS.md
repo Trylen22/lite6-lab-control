@@ -1,5 +1,15 @@
 # Project instructions
 
+## Fresh-clone and new-session entry point
+
+Read `docs/AGENT_SETUP.md` and `docs/LAB_SETUP.md` before setup work. Known
+station network addresses are published in `config/lab.station.example.toml`;
+runtime settings and measured motion profiles remain in ignored `local/`.
+Use `config/lab.simulator.example.toml` and `/#lab` for a fresh-clone Lab preview.
+Historical statements below about an operator being present and movement being
+authorized describe the original supervised development session. Do not infer
+that those conditions hold for a new collaborator or a later session.
+
 ## Scope and classroom purpose
 
 All Lite 6/OAK work belongs in this repo. Do not modify the sibling JETMAX repo
@@ -44,12 +54,13 @@ Preserve the physical E-stop distinction from software UI controls.
 
 ## Configuration and version control
 
-Actual device settings, poses, workspace profiles, weights and traces belong in
-ignored local/; commit sanitized examples. Keep credentials and secrets out of
+Runtime device settings, poses, workspace profiles, weights and traces belong in
+ignored local/; the shared station network example is deliberately published.
+Commit sanitized examples for other settings. Keep credentials and secrets out of
 source/remote URLs. Pin confirmed dependencies. Record validation and limitations
 in docs/STATUS.md, preserve detailed history in docs/SESSION_LOG.md, and maintain
 the classroom guide/architecture. Review staged content, commit and push completed
-work to the existing private repo as requested. Verify the remote before claiming
+work to the existing project remote as requested. Verify the remote before claiming
 a successful push.
 
 The Pick & Place UI is implemented. Its first operator-triggered hardware cycle

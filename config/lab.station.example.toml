@@ -1,0 +1,30 @@
+# Known shared lab station, documented 2026-10-26.
+# These are installation addresses, not manufacturer defaults for every device.
+# Copy to ignored local/lab.toml and confirm the physical station before use.
+# Addresses alone do not supply calibration, taught poses, or motion authorization.
+[host]
+name = ""
+ssh_host = "" # No permanent lab host or SSH endpoint has been established.
+ssh_user = ""
+
+[robot]
+model = "UFACTORY Lite 6"
+label_model = "LI10"
+ip = "192.168.1.152"
+
+[camera]
+model = "Luxonis OAK-D Pro PoE"
+ip = "169.254.1.222"
+device_id = ""
+mount = "arm-mounted" # Confirm the camera mount has not changed.
+
+[tool]
+model = "unknown" # Inspect the installed suction tool.
+
+[validation]
+network_verified = false
+status_verified = false
+camera_stream_verified = false
+mounting_and_estop_verified = false
+payload_verified = false
+calibration_verified = false

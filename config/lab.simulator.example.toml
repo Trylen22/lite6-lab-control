@@ -1,0 +1,7 @@
+# Observer configuration for a fresh-clone Lab preview without lab hardware.
+# Run: .venv/bin/python -m labdeck.server --config config/lab.simulator.example.toml
+# Open only http://127.0.0.1:8100/#lab.
+# This is not a global hardware-disable switch: physical routines independently
+# read local/lab.toml if it exists. Do not select physical demo tabs or buttons.
+[robot]
+ip = "127.0.0.1"

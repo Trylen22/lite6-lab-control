@@ -8,6 +8,12 @@ A local vision and robotics workspace for the UFACTORY Lite6 and Luxonis OAK-D P
 
 The recording shows the **Lab simulator only**. It does not operate the physical arm. Hardware trials and their limits are documented separately in [current status](docs/STATUS.md) and [session history](docs/SESSION_LOG.md).
 
+## Joining the project
+
+- [Lab network and device addresses](docs/LAB_SETUP.md): the shared Lite6 is `192.168.1.152`; the OAK camera is `169.254.1.222`. The host needs access to both subnets.
+- [Coding-agent setup and first-session prompt](docs/AGENT_SETUP.md): Codex, Claude Code, software checks, and the local files a clone does not include.
+- [Shared-station configuration example](config/lab.station.example.toml): known network addresses, with no taught motion data.
+
 ## Capabilities
 
 | Area | Implementation |
@@ -31,17 +37,15 @@ git clone https://github.com/Trylen22/lite6-lab-control.git
 cd lite6-lab-control
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-deck.txt
-mkdir -p local
-cp --no-clobber config/lab.example.toml local/lab.toml
 ```
 
-Set confirmed robot and camera addresses in `local/lab.toml`. For a simulator preview without starting a camera producer:
+For a fresh-clone simulator preview without lab hardware, use the explicit observer configuration:
 
 ```bash
-.venv/bin/python -m labdeck.server
+.venv/bin/python -m labdeck.server --config config/lab.simulator.example.toml
 ```
 
-Open `http://127.0.0.1:8100/#lab` and select an example. The Lab page simulates programs; it never sends robot motion commands. Missing hardware is reported by the observation workers. For the full camera workspace, use `./run.sh` after configuring the devices. The launcher reuses an existing producer on port 8090 and stops only processes it started.
+Open `http://127.0.0.1:8100/#lab` and select an example. The Lab page simulates programs; it never sends robot motion commands. Missing hardware is reported by the observation workers. For the shared physical station, create `local/lab.toml` from `config/lab.station.example.toml` and follow the two-subnet instructions in [Lab setup](docs/LAB_SETUP.md), then use `./run.sh` for the full camera workspace. For a different installation, use the blank `config/lab.example.toml`. The launcher reuses an existing producer on port 8090 and stops only processes it started.
 
 **Hardware behavior:** selecting Color detection or Hand puppy can move the arm to its configured demo pose. Start following, Pick & Place, and Pick to Shelf are physical actions. Use the Lab URL for an offline programming demonstration.
 
