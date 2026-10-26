@@ -52,6 +52,8 @@ Node.js is used for the optional JavaScript syntax check. The Lab page also need
 
 ## Connect to the shared station separately
 
+On macOS, read [Mac camera setup](MACOS_SETUP.md) before making network changes or installing the pinned camera packages. Mac hardware validation remains pending.
+
 Follow [Lab setup](LAB_SETUP.md) for the actual robot and camera addresses, the host's two subnets, and local configuration. A friend using the same station can reuse its documented network addresses after confirming the equipment. That does not recreate the station's taught motion profiles.
 
 The ignored local files include:

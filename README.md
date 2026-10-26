@@ -11,6 +11,7 @@ The recording shows the **Lab simulator only**. It does not operate the physical
 ## Joining the project
 
 - [Lab network and device addresses](docs/LAB_SETUP.md): the shared Lite6 is `192.168.1.152`; the OAK camera is `169.254.1.222`. The host needs access to both subnets.
+- [Mac camera setup](docs/MACOS_SETUP.md): platform-specific network and dependency diagnostics; Mac hardware validation is pending.
 - [Coding-agent setup and first-session prompt](docs/AGENT_SETUP.md): Codex, Claude Code, software checks, and the local files a clone does not include.
 - [Shared-station configuration example](config/lab.station.example.toml): known network addresses, with no taught motion data.
 

@@ -2,6 +2,8 @@
 
 This guide distinguishes the known shared station from a new installation. For coding-agent setup and a hardware-free Lab preview, start with [Agent setup](AGENT_SETUP.md).
 
+For macOS, use [Mac camera setup](MACOS_SETUP.md) for interface discovery, temporary addresses, routing, local-network permission, and dependency constraints. The NetworkManager commands and profiles described below are Linux-specific.
+
 ## Known shared station
 
 These values were read from the working station configuration and the laptop's saved `lite6-lab` NetworkManager profile on 2026-10-26. They are installation records, not a live connectivity check or factory defaults for every Lite6/OAK setup.
