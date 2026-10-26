@@ -1,237 +1,95 @@
-# Lite 6 Lab Deck
+# Lite6 Lab Deck
 
-A classroom-friendly vision and robotics workspace for the **UFACTORY Lite 6** and **Luxonis OAK-D Pro PoE**. Built independently of the JetMax project, with readable Python modules and a local browser interface.
+A local vision and robotics workspace for the UFACTORY Lite6 and Luxonis OAK-D Pro PoE. The browser interface combines camera inspection, guided robot demonstrations, a block-programming simulator, and classroom documentation. This project is separate from the JetMax controller.
 
-**Pick & Place now runs one green-guided cycle per click:** align, approach, confirm suction, lift 10 mm, hold two seconds, lower/release, and return to camera height. The first UI cycle passed on hardware. It uses a session-bound local tabletop calibration, not general 3D scene understanding.
+[![Blockly program running in the Lite6 3D simulator](docs/demo/preview.webp)](https://trylen22.github.io/demos/lite6/)
 
-## What works now
+[Watch the captioned demonstration](https://trylen22.github.io/demos/lite6/). The page also provides the MP4 and subtitle file.
 
-- Local dashboard at **http://127.0.0.1:8100/** with vision workspace, robot telemetry, learning path, and system notes.
-- Live color camera; raw, annotated, and HSV mask views.
-- OpenCV color detection with green/cyan, red, blue, and yellow presets and an adjustable minimum region area.
-- **YOLOX-Nano** on the laptop CPU through OpenCV DNN. This is a small pretrained YOLO-family model, not a model currently running on the camera. Its 80 COCO classes cover everyday objects, not custom lab parts.
-- Read-only UFACTORY SDK telemetry: firmware, controller state code, errors/warnings, tool pose, and six joint angles.
-- Explicit freshness indicators: a lost camera or robot connection is reported rather than treated as a valid observation.
+The recording shows the **Lab simulator only**. It does not operate the physical arm. Hardware trials and their limits are documented separately in [current status](docs/STATUS.md) and [session history](docs/SESSION_LOG.md).
 
-Detection coordinates are **image pixels**. The pickup worker uses a separately measured fixed-height XY response and taught suction reference to convert image error into bounded motion. YOLO detections do not command the arm.
+## Capabilities
 
-## Quick start on the laptop
+| Area | Implementation |
+|---|---|
+| Color inspection | OpenCV HSV masks, contours, annotated images, and adjustable region thresholds |
+| Object detection | YOLOX-Nano through OpenCV DNN on the host CPU; 80 COCO classes |
+| Robot observation | Controller state, faults, pose, joints, and freshness indicators through the UFACTORY SDK |
+| Green pickup | Locally calibrated image alignment, bounded seal search, suction feedback, lift, release, and return to observation height |
+| Shelf transfer | A separate taught route and release sequence using local waypoints |
+| Hand following | Open-palm tracking with bounded wrist-joint servo motion; base, shoulder, elbow, and roll remain fixed |
+| Lab | Blockly beside a three.js Lite6 model, simulated tool and wrist view, and Studio project import/export |
 
-Validated baseline: **Linux x86_64, Python 3.12**. The original Jetson Nano has not been validated with these dependencies.
+The pickup and hand demonstrations depend on local calibration, mounting, and workspace settings. They are not general scene understanding or collision avoidance. YOLO detections do not directly command the arm.
+
+## Run locally
+
+Validated baseline: Linux x86_64 with Python 3.12. The original Jetson Nano has not been validated with this dependency set.
 
 ```bash
-cd /path/to/LITE6
+git clone https://github.com/Trylen22/lite6-lab-control.git
+cd lite6-lab-control
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-deck.txt
 mkdir -p local
 cp --no-clobber config/lab.example.toml local/lab.toml
 ```
 
-Edit `local/lab.toml` with the **confirmed** robot and camera addresses. Do not overwrite existing local configuration. Actual device addresses and credentials stay out of Git.
+Set confirmed robot and camera addresses in `local/lab.toml`. For a simulator preview without starting a camera producer:
 
 ```bash
-# Download the official 3.5 MB YOLOX-Nano ONNX release and check its hash.
-.venv/bin/python scripts/download_yolo.py
-
-# Launch the camera producer if needed, then the dashboard.
-./run.sh
-```
-
-Open **http://127.0.0.1:8100/** in a browser on this laptop. Stop the launcher with **Ctrl+C**. Settings return to defaults on a new deck process; changing a UI vision setting never changes robot settings.
-
-The launcher reuses an existing camera producer on port 8090. It stops only child processes it started. To run the parts separately:
-
-```bash
-# Terminal 1: only one process should own the camera.
-.venv/bin/python scripts/camera_preview.py --ip <confirmed-camera-IP>
-
-# Terminal 2: consumes fresh JPEGs from Terminal 1 and reads arm telemetry.
 .venv/bin/python -m labdeck.server
 ```
 
-If the deck is already running, open its URL rather than launching a second copy. Loopback binding means it is accessible only from the host laptop; network sharing/remote access is a later setup step.
+Open `http://127.0.0.1:8100/#lab` and select an example. The Lab page simulates programs; it never sends robot motion commands. Missing hardware is reported by the observation workers. For the full camera workspace, use `./run.sh` after configuring the devices. The launcher reuses an existing producer on port 8090 and stops only processes it started.
 
-## Start reading here
+**Hardware behavior:** selecting Color detection or Hand puppy can move the arm to its configured demo pose. Start following, Pick & Place, and Pick to Shelf are physical actions. Use the Lab URL for an offline programming demonstration.
 
-| File | What students learn |
+Optional models are downloaded explicitly:
+
+```bash
+.venv/bin/python scripts/download_yolo.py
+.venv/bin/python -m pip install -r requirements-hands.txt
+.venv/bin/python scripts/download_hands.py
+```
+
+## Calibration and control
+
+Color regions begin as image pixels. A measured local XY response and taught suction reference map image error to bounded movement within the calibrated tabletop domain. Suction is enabled before the final approach, and seal feedback gates lifting. A completed pickup releases the object and returns to observation height. Shelf transfer uses a separate taught path.
+
+The hand display is rotated for the camera mounting; this display transform does not change sensor coordinates. Hand following uses wrist joints 4 and 5 in servo mode, with configured angle, speed, acceleration, and heartbeat limits. It does not extend the base toward a person. See the implementation and current status for the exact policy.
+
+The Lab model uses UFACTORY meshes and an optional per-arm kinematic fit. Importing or running a Studio block program in Lab remains a simulation. Physical execution of arbitrary student programs is a separate feature.
+
+## Read the project
+
+| Resource | Purpose |
 |---|---|
-| [Classroom guide](docs/CLASSROOM_GUIDE.md) | Guided exercises and questions |
-| [Architecture](docs/ARCHITECTURE.md) | Data flow, processes, units, failure handling |
-| [Roadmap](docs/ROADMAP.md) | Staged plan through calibration and pick-and-place |
-| [Suction calibration plan](docs/CALIBRATION_PLAN.md) | Official reference geometry, mounting checks, and measurement procedure |
+| [Classroom guide](docs/CLASSROOM_GUIDE.md) | Exercises and discussion questions |
+| [Architecture](docs/ARCHITECTURE.md) | Processes, units, coordinate frames, and failure handling |
+| [Calibration plan](docs/CALIBRATION_PLAN.md) | Mounting checks and measurement procedure |
 | [Lab setup](docs/LAB_SETUP.md) | Network and hardware preparation |
-| [Current status](docs/STATUS.md) | Verified behavior and remaining limits |
-| [Session history](docs/SESSION_LOG.md) | How we reached the current setup |
+| [Current status](docs/STATUS.md) | Recorded validation and remaining limits |
+| [Session history](docs/SESSION_LOG.md) | Detailed development and trial history |
+| [Third-party references](docs/THIRD_PARTY.md) | Models, meshes, libraries, and provenance |
+
+Historical notes describe earlier experiments and speed limits; consult the current code and status before using a physical routine. Do not copy another station's contact poses, offsets, or calibration.
 
 ## Source map
 
-```text
-assets/                     Browser HTML, readable CSS, and commented JavaScript
-labdeck/
-  color.py                  HSV → mask → contours → pixel candidates
-  yolo.py                   CPU model preprocessing, inference, and box decoding
-  robot.py                  Small read-only boundary around the UFACTORY SDK
-  server.py                 HTTP endpoints and independent observation workers
-  jobs.py                   One explicit pickup job; duplicate-start protection
-  automatic_pick.py         Session checks, alignment, pickup and camera return
-  workspace_preview.py      Read-only transit/descent/return grid preview
-scripts/
-  camera_preview.py         Owns the OAK pipeline; serves fresh local frames
-  discover_camera.py        Enumerates OAK devices without starting a stream
-  download_yolo.py          Explicit model download with a pinned checksum
-  host_inventory.sh         Read-only inspection of the local host
-  run_lab.py                Starts/reuses processes and handles shutdown
-config/lab.example.toml      Sanitized device configuration template
-tests/                      Offline vision geometry and observation-boundary checks
-local/                      Ignored actual configuration, model, and diagnostics
-```
+- `assets/`: browser interface; `assets/lab/` contains the simulation.
+- `labdeck/`: observation workers, color and hand policies, job dispatch, and guarded physical routines.
+- `scripts/`: camera ownership, model downloads, setup inspection, and explicit calibration tools.
+- `config/lab.example.toml`: sanitized configuration template.
+- `tests/`: offline geometry, observation, policy, HTTP, and simulation checks.
+- `local/`: ignored device settings, calibration, models, and traces.
 
 ## Checks
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 node --check assets/app.js
-# Optional formatter/linter (install requirements-dev.txt first):
-.venv/bin/ruff check labdeck scripts tests
-.venv/bin/ruff format --check labdeck scripts tests
 bash -n run.sh
-.venv/bin/python -m pip check
 ```
 
-Offline tests cover colored regions/noise, red hue wraparound, pixel-coordinate geometry, YOLO duplicate suppression, invalid settings, stale results, and the robot getter-only boundary. Hardware validation is recorded separately; passing an offline test does not establish physical readiness.
-
-## Keeping the project clean
-
-Use this repo for Lite 6/OAK work and the separate JetMax repo for JetMax work. Keep machine addresses, credentials, model weights, images, recordings, and logs under ignored `local/`, `data/`, or another ignored directory. Commit source, sanitized examples, explanatory notes, and validation results after each coherent milestone, then push to this project's private remote.
-
-The model is downloaded explicitly rather than committed or fetched silently at startup. See [third-party references](docs/THIRD_PARTY.md) for provenance and licenses.
-
-## Separate supervised taught trials
-
-`scripts/taught_pick_trial.py` is separate from the classroom dashboard and defaults to getter-only preflight. It uses explicit local contact/clearance records, checks current pose, TCP/base offsets and configured load, and requires an empty command queue and an already enabled/idle controller. It never enables, changes mode, or clears faults.
-
-Profiles require an explicit `--execute` and a concrete operator request:
-
-- Default: a taught vertical lift up to 2.1 mm, monitored two-second hold, lower to contact, release.
-- `--release-at-hover`: the explicitly requested small drop, releasing at that <=2.1 mm hover without returning to compressed contact.
-- `--pickup-10mm`: start at the verified 2 mm clearance, return to verified contact, confirm suction, lift 10 mm at 2 mm/s, hold, lower to 2 mm clearance, release. It cannot be combined with release-at-hover.
-
-No pickup feedback means no lift. A motion/feedback failure away from confirmed contact preserves the current tool state for operator recovery; there is no automatic descent or blind release. Use the physical emergency stop for an emergency; closing a terminal is not a certified stop. Do not execute these as generic classroom examples or reuse old coordinates.
-
-**Release correction:** the manufacturer's OFF/release command leaves DO0 low and DO1 high. Earlier trial code incorrectly cleared the release output after 0.3 seconds, an unvalidated assumption removed after an operator report of incomplete shutoff. Current scripts leave release asserted and require the expected output readback plus pickup input low before recording I/O release confirmation. Command acknowledgement alone is not physical release confirmation.
-
-## Stationary suction diagnosis
-
-`scripts/check_suction.py` inspects tool state by default. Its explicit `--pulse --pose-record <fresh-inspection.json>` option applies one two-second suction pulse at the inspected stationary pose and logs default vacuum state plus all available tool inputs. It has no arm-movement call. It leaves the manufacturer's OFF/release state asserted afterward and checks output/input readback.
-
-SDK vacuum state: `-1 = tool off`, `0 = no pickup feedback`, `1 = pickup feedback`. An audible pump is not seal confirmation. Changing the pose invalidates an old taught path. The stopped/started state of the pump and physical object clearance still require operator observation; sensor readback does not measure cup compliance.
-
-See [JetMax comparison and the next vision step](docs/JETMAX_TO_LITE6.md).
-
-### Fixed-height green calibration experiment
-
-The isolated CLI `python -m labdeck.green_calibrate` separates `raise`,
-`adopt-watch` (record a manual vertical jog), `sample`, `probe`, and `align`.
-Commands preview/read only unless `--execute` is supplied. The first `raise`
-requires `--contact PATH` to an operator-taught, ignored local record. Never
-borrow a contact from another robot, object or session. See
-[the calibration plan](docs/CALIBRATION_PLAN.md) and
-[current physical validation](docs/STATUS.md) before hardware use.
-
-A measured local XY fit and feedback alignment have passed on hardware.
-An earlier low-height wrist configuration was rejected by the IK guard. Later
-relocation and shallow contact teaching established the current working region.
-Do not reuse those old poses or bypass IK checks. Gesture policies remain future work.
-
-The relocated local prototype also separates `green_teach` (approach only),
-`contact_pick` (one operator-bounded seal search and pick), and
-`repeat_green_pick` (one camera-guided return/repeat). Each defaults to a read-only
-plan and requires fresh local teaching/trial records for execution. The verified
-repeat supports explicit speed selection; the next test is authorized up to
-`--speed-scale 1.3225` (two compounded 15% increases). Suction turns ON
-before final descent, and neither speed adjustment nor failed seal permits a
-deeper contact. See the latest status before using any experimental motion CLI.
-
-## Using Pick & Place
-
-Select Color / Green with one visible block, at the calibrated observation height
-and wrist angle. The button shows why it is unavailable when a prerequisite fails.
-One click starts one cycle; progress appears below it and duplicate starts are
-rejected. Opening the page or polling status cannot start movement. Closing the
-page does not stop an active cycle; use the physical E-stop for an emergency.
-Normal launcher shutdown waits for its active job.
-
-The ignored `local/automation.json` stores camera-session identity, expiry,
-measured response, cup aim, checked XY bounds, contact floor and speed cap.
-`config/automation.example.json` documents its fields with deliberately unusable
-geometry. Do not turn that example into a profile by guessing coordinates.
-Revalidate after camera restart, mounting/contact changes or session expiry.
-Traces stay in ignored `local/trial_logs/`.
-
-### Extending the checked workspace
-
-`python -m labdeck.workspace_preview` previews a candidate corridor toward the
-visible block without moving or changing the active profile. It checks a 3×3
-grid with chained high travel, vertical descent and return IK. Inspect the
-whole arm/camera swept space separately; this is not shelf collision detection.
-The ignored report records partial failures as well as success.
-
-Profiles may contain `xy_regions_mm`, a union of checked XY rectangles inside
-the outer bounds. This avoids filling every gap when adding a corridor. Initial
-transit and each correction are checked through the regions; worker preflight
-also previews the predicted descent before moving. The final actual descent
-is checked again after image alignment. The button uses the cached estimated
-target to reject out-of-region requests early; live worker checks remain final.
-
-### Separate clear-travel speed
-
-The local profile may set `clear_travel_mm_s` up to 20 mm/s. Omitted values keep
-the legacy `5 * speed_scale` rate. This affects only the empty-tool vertical
-approach above the floor +15 mm and the return after a slow release-gated
-retreat to that height. The final 10 mm approach, image alignment, bounded
-contact search and loaded lift/lower retain their previous speeds. Acceleration
-and all depth/seal/configuration checks are unchanged.
-
-Cycle traces include monotonic event times, `total_seconds` and `phase_seconds`.
-The dashboard reports measured duration after successful completion. Compare
-like starting positions; a cycle that begins aligned is not a fair measurement
-of faster long-distance visual alignment.
-
-## Hand puppy demo
-
-Install the optional local detector and explicitly download its pinned model:
-
-```bash
-.venv/bin/python -m pip install -r requirements-hands.txt
-.venv/bin/python scripts/download_hands.py
-```
-
-Select **Hand puppy** to see 21 landmarks, palm center and gesture labels. The
-dashboard view is rotated 180° for this mounting; inference/controller pixels
-and the producer's native stream remain unchanged. Boxes, labels, masks and
-the saved pickup reticle are transformed only for display. Rotating a display
-does not authorize moving the physical camera or reusing a fit at a new wrist.
-
-The forward-facing demo needs its own ignored `local/hand-follow.json`. The
-read-only default `python -m labdeck.hand_calibrate` previews small wrist turns.
-Only an explicitly supervised `--execute --space-clear` measures ±1° on wrist
-joints 4/5, checks return-to-origin and a holdout, then saves an independent
-wrist-follow profile. `--roi` and `--exclude-roi` select static scene features
-in native sensor pixels, excluding the moving person. This never overwrites
-pickup calibration. Calibration can fail; do not bypass its checks.
-
-Start following is an explicit action. Keep this tab visible and one open palm
-fully in view, clear of the arm and camera. A fist, missing/ambiguous/stale hand
-or an image edge prevents another turn. Three fresh open-palm frames, a 25 px
-dead zone and smoothing reduce jitter. Turns are capped at 0.3° and 2°/s, within
-±5° of the taught wrist anchor and 6° total angular displacement from session
-start. Sessions last at most 90 seconds. Base, shoulder and final wrist-roll
-joints remain fixed. The camera makes small head-like turns, with no suction
-or approach toward the hand; no hand depth/contact-separation claim is made.
-
-Stop following prevents the next turn; at most the current short turn finishes.
-It is not an emergency stop. Browser heartbeats expire after 1.5 s, hidden pages
-request stop, and shutdown ends following. Page loads/GET status do not renew
-intent. Pickup and hand following cannot run together. Suction stays released.
-Live physical follow validation is recorded in STATUS, separately from offline
-policy/HTTP checks and successful hand-model inference.
+The offline suite passed 98 tests during the documentation and demo update on 2026-10-26. This verifies software behavior under the tested fixtures; it does not establish physical readiness. The UI stop controls do not replace the physical emergency stop.
