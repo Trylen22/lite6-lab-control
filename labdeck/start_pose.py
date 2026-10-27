@@ -58,8 +58,16 @@ class TransferArm(HandServoArm):
         )
 
     def ready_position_mode(self):
-        """Resume a software-stopped arm (state 5) in position mode. No faults."""
+        """Resume a software-stopped arm (state 5) in position mode. No faults.
+
+        A controller error is never cleared here; the operator does that in
+        Studio after looking at the arm.
+        """
         a = self.arm
+        if value(a.get_err_warn_code()) != [0, 0]:
+            raise RuntimeError("Controller reports an error; clear it in Studio")
+        if a.mode == 0 and value(a.get_state()) == 2:
+            return  # Already idle in position mode; nothing to send.
         if a.set_mode(0) != 0 or a.set_state(0) != 0:
             raise RuntimeError("Controller refused position mode")
         deadline = time.monotonic() + 3
@@ -101,6 +109,10 @@ class TransferArm(HandServoArm):
     def go(self, target):
         start = self.joints()
         if np.max(np.abs(np.array(start) - target)) <= ARRIVED_DEG:
+            # Already parked here (typical right after power-up, state 5).
+            # The operator's demo click still has to leave the arm idle, or
+            # Pick & Place would refuse with "must be idle".
+            self.ready_position_mode()
             return False
         change = np.abs(np.array(start) - target)
         if change[0] > MAX_BASE_SWING_DEG:

@@ -35,7 +35,16 @@ class RobotObserver:
         )
         return result
 
-    def run(self, stop):
+    def run(self, stop, retry_seconds=3):
+        # The deck must start with no arm attached. Each failed or dropped
+        # connection is reported, then retried after a pause, so plugging the
+        # arm in later is enough. Reconnecting only resumes READ-ONLY getters;
+        # it never enables, resets or moves anything.
+        while not stop.is_set():
+            self._observe(stop)
+            stop.wait(retry_seconds)
+
+    def _observe(self, stop):
         arm = None
         try:
             # Disable unsolicited report/keepalive workers; our own loop performs
@@ -44,10 +53,14 @@ class RobotObserver:
                 self.ip, do_not_open=True, enable_report=False, timed_comm=False
             )
             arm.connect()
+            if not arm.connected:
+                raise RuntimeError("Arm not reachable; retrying")
             version_code, version = arm.get_version()
             if version_code != 0:
                 raise RuntimeError(f"Version query returned {version_code}")
             while not stop.is_set():
+                if not arm.connected:
+                    raise RuntimeError("Arm connection lost; retrying")
                 values = {"version": version}
                 failures = []
                 for key, getter in (
@@ -74,4 +87,7 @@ class RobotObserver:
                 self.updated = time.monotonic()
         finally:
             if arm is not None:
-                arm.disconnect()
+                try:
+                    arm.disconnect()
+                except Exception:
+                    pass  # A half-open socket must not stop the retry loop.

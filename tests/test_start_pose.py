@@ -45,14 +45,22 @@ class FakeSDK:
     def get_servo_angle(self):
         return 0, self.angles + [0.0]
 
+    state = 2
+    errors = [0, 0]
+
     def get_state(self):
-        return 0, 2
+        return 0, self.state
+
+    def get_err_warn_code(self):
+        return 0, self.errors
 
     def set_mode(self, mode):
         self.mode = mode
         return 0
 
     def set_state(self, state):
+        if state == 0 and self.errors == [0, 0]:
+            self.state = 2
         return 0
 
     def set_servo_angle(self, angle, **kwargs):
@@ -76,6 +84,22 @@ class TransferArmTests(unittest.TestCase):
         self.assertEqual(sdk.moves, [(PICKUP, 25)])
         self.assertFalse(arm.go(np.array(PICKUP)))
         self.assertEqual(len(sdk.moves), 1)
+
+    def test_already_there_after_power_up_still_leaves_arm_idle(self):
+        # Power-up leaves the arm stopped (state 5) at the parked pose. The
+        # demo click must ready it without moving, so Pick & Place can run.
+        sdk = FakeSDK(PICKUP)
+        sdk.state = 5
+        self.assertFalse(fake_arm(sdk).go(np.array(PICKUP)))
+        self.assertEqual(sdk.state, 2)
+        self.assertEqual(sdk.moves, [])
+
+    def test_controller_error_is_not_cleared_by_a_demo_click(self):
+        sdk = FakeSDK(PICKUP)
+        sdk.state, sdk.errors = 5, [1, 0]
+        with self.assertRaisesRegex(RuntimeError, "clear it in Studio"):
+            fake_arm(sdk).go(np.array(PICKUP))
+        self.assertEqual(sdk.state, 5)
 
     def test_big_base_swing_or_wrist_spin_is_refused(self):
         shelf = [-78.3, 7.9, 98.2, -171.1, -40.6, 181.3]

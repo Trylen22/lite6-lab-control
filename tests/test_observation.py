@@ -63,6 +63,25 @@ class ObservationBoundary(unittest.TestCase):
         )
         self.assertEqual(observer.snapshot()["values"]["state"], 5)
 
+    def test_unreachable_arm_is_retried_until_it_connects(self):
+        # Students may start the deck before plugging in the arm. The first
+        # attempt fails, is reported, and the next attempt connects read-only.
+        stop = threading.Event()
+        fake = FakeArm(stop)
+        attempts = []
+
+        def factory(*_, **__):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise ConnectionError("connect socket failed")
+            return fake
+
+        observer = RobotObserver("test", api_factory=factory)
+        observer.run(stop, retry_seconds=0)
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(fake.calls[0], "connect")
+        self.assertTrue(observer.snapshot()["connected"])
+
     def test_invalid_settings_do_not_mutate_and_mode_change_clears_results(self):
         vision = VisionWorkspace("http://127.0.0.1:8090")
         original = vision.settings.copy()

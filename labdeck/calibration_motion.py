@@ -6,7 +6,6 @@ An operator must clear the swept volume and remain at the physical E-stop.
 """
 
 import json
-import fcntl
 from pathlib import Path
 import threading
 import time
@@ -17,6 +16,25 @@ import numpy as np
 from xarm.wrapper import XArmAPI
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def lock_exclusive(lease):
+    """Take a non-blocking exclusive lock on an open file, on any OS.
+
+    Raises BlockingIOError when another process already holds it. The lock
+    ends when the file is closed or the process exits.
+    """
+    try:
+        import fcntl
+    except ImportError:  # Windows has no fcntl; msvcrt locks a byte range.
+        import msvcrt
+
+        try:
+            msvcrt.locking(lease.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError:
+            raise BlockingIOError from None
+    else:
+        fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
 def value(result):
@@ -32,7 +50,7 @@ class CalibrationArm:
         lock_path = ROOT / "local/calibration-motion.lock"
         self.lease = lock_path.open("w")
         try:
-            fcntl.flock(self.lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_exclusive(self.lease)
         except BlockingIOError:
             self.lease.close()
             raise RuntimeError("Another calibration controller owns the arm") from None

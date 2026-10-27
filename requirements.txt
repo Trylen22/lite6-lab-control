@@ -1,0 +1,11 @@
+# Everything the Lab Deck needs: page, camera, arm status and Hand puppy.
+#   python -m venv .venv
+#   .venv/bin/python -m pip install -r requirements.txt      (Linux/macOS)
+#   .venv\Scripts\python -m pip install -r requirements.txt  (Windows)
+# Python 3.11+ (tomllib). Verified on Linux x86_64, Python 3.12.
+# The requirements-*.txt files are smaller subsets of this same pinned set.
+depthai==3.11.0
+numpy==2.5.4
+opencv-contrib-python==5.0.0.93
+xarm-python-sdk==1.18.4
+mediapipe==0.10.35

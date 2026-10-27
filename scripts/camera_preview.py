@@ -21,8 +21,9 @@ def main():
     args = parser.parse_args()
     stop = threading.Event()
     condition = threading.Condition()
-    latest = {"jpeg": None, "frames": 0, "time": 0.0}
-    session_id = uuid.uuid4().hex
+    # "session" changes on every camera (re)connect, so a consumer can tell a
+    # reconnected device apart from the stream it was following.
+    latest = {"jpeg": None, "frames": 0, "time": 0.0, "session": uuid.uuid4().hex}
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
 
@@ -68,7 +69,7 @@ catch(e){document.getElementById('status').textContent='Preview server disconnec
                     # can reject duplicate frames and frames from an old process.
                     body = json.dumps(
                         {
-                            "session": session_id,
+                            "session": frame["session"],
                             "sequence": frame["frames"],
                             "received_monotonic": frame["time"],
                             "age_seconds": age,
@@ -128,50 +129,64 @@ catch(e){document.getElementById('status').textContent='Preview server disconnec
     thread.start()
     print(f"Preview URL: http://127.0.0.1:{args.port}/", flush=True)
     try:
-        with dai.Device(dai.DeviceInfo(args.ip)) as device:
-            print("Device:", device.getDeviceName(), flush=True)
-            for feature in device.getConnectedCameraFeatures():
-                print(
-                    "Sensor:",
-                    feature.socket,
-                    feature.sensorName,
-                    feature.width,
-                    feature.height,
-                    flush=True,
-                )
-            with dai.Pipeline(device) as pipeline:
-                camera = pipeline.create(dai.node.Camera).build(
-                    dai.CameraBoardSocket.CAM_A
-                )
-                queue = camera.requestOutput(
-                    (640, 400), type=dai.ImgFrame.Type.BGR888p, fps=15
-                ).createOutputQueue(maxSize=2, blocking=False)
-                pipeline.start()
-                last_received = time.monotonic()
-                while pipeline.isRunning() and not stop.is_set():
-                    message = queue.tryGet()
-                    if message is None:
-                        if time.monotonic() - last_received > 20:
-                            raise RuntimeError(
-                                "No camera frames received for 20 seconds"
-                            )
-                        stop.wait(0.01)
-                        continue
-                    last_received = time.monotonic()
-                    ok, encoded = cv2.imencode(
-                        ".jpg", message.getCvFrame(), [cv2.IMWRITE_JPEG_QUALITY, 80]
-                    )
-                    if not ok:
-                        raise RuntimeError("JPEG encoding failed")
+        # Keep the preview port up with no camera attached. A missing camera,
+        # dropped link or 20 s frame gap ends this session only; the loop
+        # then searches again, so plugging the OAK in later is enough.
+        while not stop.is_set():
+            try:
+                with dai.Device(dai.DeviceInfo(args.ip)) as device:
                     with condition:
-                        latest.update(
-                            jpeg=encoded.tobytes(),
-                            time=last_received,
-                            frames=latest["frames"] + 1,
+                        latest.update(jpeg=None, session=uuid.uuid4().hex)
+                    print("Device:", device.getDeviceName(), flush=True)
+                    for feature in device.getConnectedCameraFeatures():
+                        print(
+                            "Sensor:",
+                            feature.socket,
+                            feature.sensorName,
+                            feature.width,
+                            feature.height,
+                            flush=True,
                         )
-                        condition.notify_all()
-                    if latest["frames"] == 1:
-                        print("First color frame received", flush=True)
+                    with dai.Pipeline(device) as pipeline:
+                        camera = pipeline.create(dai.node.Camera).build(
+                            dai.CameraBoardSocket.CAM_A
+                        )
+                        queue = camera.requestOutput(
+                            (640, 400), type=dai.ImgFrame.Type.BGR888p, fps=15
+                        ).createOutputQueue(maxSize=2, blocking=False)
+                        pipeline.start()
+                        last_received = time.monotonic()
+                        while pipeline.isRunning() and not stop.is_set():
+                            message = queue.tryGet()
+                            if message is None:
+                                if time.monotonic() - last_received > 20:
+                                    raise RuntimeError(
+                                        "No camera frames received for 20 seconds"
+                                    )
+                                stop.wait(0.01)
+                                continue
+                            last_received = time.monotonic()
+                            ok, encoded = cv2.imencode(
+                                ".jpg",
+                                message.getCvFrame(),
+                                [cv2.IMWRITE_JPEG_QUALITY, 80],
+                            )
+                            if not ok:
+                                raise RuntimeError("JPEG encoding failed")
+                            with condition:
+                                latest.update(
+                                    jpeg=encoded.tobytes(),
+                                    time=last_received,
+                                    frames=latest["frames"] + 1,
+                                )
+                                condition.notify_all()
+                            if latest["frames"] == 1:
+                                print("First color frame received", flush=True)
+            except Exception as exc:
+                if stop.is_set():
+                    break
+                print(f"Camera unavailable ({exc}); retrying in 5 s", flush=True)
+                stop.wait(5)
     finally:
         stop.set()
         with condition:

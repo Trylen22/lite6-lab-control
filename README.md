@@ -37,8 +37,10 @@ Validated baseline: Linux x86_64 with Python 3.12. The original Jetson Nano has 
 git clone https://github.com/Trylen22/lite6-lab-control.git
 cd lite6-lab-control
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-deck.txt
+.venv/bin/python -m pip install -r requirements.txt
 ```
+
+On Windows: `py -m venv .venv` then `.venv\Scripts\python -m pip install -r requirements.txt`. `requirements.txt` installs everything, including Hand puppy; the `requirements-*.txt` files are smaller subsets for partial installs.
 
 For a fresh-clone simulator preview without lab hardware, use the explicit observer configuration:
 
@@ -46,15 +48,16 @@ For a fresh-clone simulator preview without lab hardware, use the explicit obser
 .venv/bin/python -m labdeck.server --config config/lab.simulator.example.toml
 ```
 
-Open `http://127.0.0.1:8100/#lab` and select an example. The Lab page simulates programs; it never sends robot motion commands. Missing hardware is reported by the observation workers. For the shared physical station, create `local/lab.toml` from `config/lab.station.example.toml` and follow the two-subnet instructions in [Lab setup](docs/LAB_SETUP.md), then use `./run.sh` for the full camera workspace. For a different installation, use the blank `config/lab.example.toml`. The launcher reuses an existing producer on port 8090 and stops only processes it started.
+Open `http://127.0.0.1:8100/#lab` and select an example. The Lab page simulates programs; it never sends robot motion commands. Missing hardware is reported by the observation workers. For the shared physical station, create `local/lab.toml` from `config/lab.station.example.toml` and follow the two-subnet instructions in [Lab setup](docs/LAB_SETUP.md), then use `./run.sh` (Windows: `run.cmd`) for the full camera workspace. For a different installation, use the blank `config/lab.example.toml`. The launcher reuses an existing producer on port 8090 and stops only processes it started.
 
-**Hardware behavior:** selecting Color detection or Hand puppy can move the arm to its configured demo pose. Start following, Pick & Place, and Pick to Shelf are physical actions. Use the Lab URL for an offline programming demonstration.
+**Start first, connect later:** the launcher always brings the page up, even with no camera or arm attached. Without `local/lab.toml` it uses the published station addresses. The camera producer and the robot observer keep retrying in the background, so plugging in the Ethernet is enough; the page fills in within about 10 seconds. Reconnecting only resumes read-only status. Nothing moves until an operator presses a motion button and its preflight passes.
+
+**Hardware behavior:** selecting Color detection or Hand puppy can move the arm to its configured demo pose. That same click readies a stopped, error-free arm (state 5 to idle, position mode) even when it is already parked at the pose, so the demo buttons work right after power-up. A controller error is never cleared by the page; clear it in Studio. Start following, Pick & Place, and Pick to Shelf are physical actions. Use the Lab URL for an offline programming demonstration.
 
 Optional models are downloaded explicitly:
 
 ```bash
 .venv/bin/python scripts/download_yolo.py
-.venv/bin/python -m pip install -r requirements-hands.txt
 .venv/bin/python scripts/download_hands.py
 ```
 

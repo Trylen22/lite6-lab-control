@@ -13,7 +13,6 @@ software-stopped arm (state 5). It never clears faults (state 4 / error
 codes): those still require the operator.
 """
 
-import fcntl
 import json
 import time
 import tomllib
@@ -21,7 +20,7 @@ import tomllib
 import numpy as np
 from xarm.wrapper import XArmAPI
 
-from .calibration_motion import ROOT, value
+from .calibration_motion import ROOT, lock_exclusive, value
 from .suction import checked_vacuum
 
 # Commanded vs reported joints may differ by lag (report rate ~5-10 Hz at up
@@ -35,7 +34,7 @@ class HandServoArm:
         lock_path = ROOT / "local/calibration-motion.lock"
         self.lease = lock_path.open("w")
         try:
-            fcntl.flock(self.lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_exclusive(self.lease)
         except BlockingIOError:
             self.lease.close()
             raise RuntimeError("Another controller owns the arm") from None
