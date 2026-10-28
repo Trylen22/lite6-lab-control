@@ -25,9 +25,14 @@ class MacLabNetworkTests(unittest.TestCase):
             self.assertEqual(subprocess.run(["sh", "-n", f.name]).returncode, 0)
         self.assertIn("DEV=en7", text)
         self.assertIn("inet 192.168.1.201 netmask 255.255.255.0 alias", text)
+        self.assertIn('grep -q "inet 192\\.168\\.1\\."', text)  # keeps an existing .100
         self.assertIn(f"inet {mln.CAMERA_ALIAS} netmask 255.255.0.0 alias", text)
-        self.assertIn("for HOST in 169.254.1.222 192.168.1.152", text)
-        self.assertIn('grep -q "status: active" || exit 0', text)  # unplugged: no-op
+        # Net route sent from the 169.254 address, never "-host ... -interface".
+        self.assertIn('-net 169.254.0.0 -netmask 255.255.0.0 -interface "$DEV" -ifa "$LL"', text)
+        commands = [l for l in text.splitlines() if not l.lstrip().startswith("#")]
+        self.assertFalse(any("add -host" in l for l in commands))
+        self.assertIn("route -n delete -host 169.254.1.222", text)
+        self.assertIn('grep -q "status: active" || { rm -f "$STATE"; exit 0; }', text)  # unplugged: no-op
         self.assertNotIn("default", text)  # never touches the default route
         self.assertNotIn("en0", text)
 

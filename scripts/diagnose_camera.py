@@ -119,7 +119,7 @@ def mac_wired_adapters():
     return found
 
 
-def mac_route_fix(ip, wrong_iface):
+def mac_route_fix(ip, wrong_iface, src=None):
     """Concrete commands for the macOS link-local route problem."""
     wired = mac_wired_adapters()
     if not wired:
@@ -128,19 +128,33 @@ def mac_route_fix(ip, wrong_iface):
             "(System Settings › Network should show it as Connected or Self-Assigned IP)."
         )
     port, dev, addrs = wired[0]
+    ll = next((a for a in addrs if a.startswith("169.254.")), "169.254.1.11")
+    if wrong_iface == dev:
+        first = (
+            f"Camera traffic already goes out {dev}, but it is sent FROM {src or '?'}, not a 169.254 "
+            f"address ({dev} has {', '.join(addrs) or 'none'}). The camera only knows link-local, so it "
+            "never answers ping, TCP or discovery. Pick one fix:"
+        )
+    else:
+        first = (
+            f"macOS sends ALL 169.254.x.x traffic out one interface; here that is {wrong_iface or '?'}, not your "
+            f"wired adapter {dev} ({port}, addresses {', '.join(addrs) or 'none'}). Pick one fix:"
+        )
     lines = [
-        f"macOS sends ALL 169.254.x.x traffic out one interface; here that is {wrong_iface or '?'}, not your "
-        f"wired adapter {dev} ({port}, addresses {', '.join(addrs) or 'none'}). Pick one fix:",
+        first,
         "  1) quick test: turn Wi-Fi off, run this check again",
-        f"  2) this session:  sudo route -n add -host {ip} -interface {dev}",
-        f"     (if it says 'File exists':  sudo route -n change -host {ip} -interface {dev})",
+        f"  2) this session:  sudo route -n change -net 169.254.0.0 -netmask 255.255.0.0 -interface {dev} -ifa {ll}",
+        "     (if it says 'not in table', use 'add' instead of 'change')",
         f"  3) lasting: System Settings › Network › ⋯ › Set Service Order…, drag {port} above Wi-Fi",
         "  4) permanent, recommended (survives reboot and replug):",
         "     .venv/bin/python scripts/mac_lab_network.py",
+        f"  Do NOT use 'route add -host {ip} -interface {dev}': macOS then maps the camera to",
+        "  this Mac's own MAC address and nothing reaches it.",
     ]
     if not any(a.startswith("169.254.") for a in addrs):
-        lines.append(
-            f"  {dev} also needs a link-local address:  sudo ifconfig {dev} inet 169.254.1.11 netmask 255.255.0.0 alias"
+        lines.insert(
+            1,
+            f"  first give {dev} a link-local address:  sudo ifconfig {dev} inet 169.254.1.11 netmask 255.255.0.0 alias",
         )
     return "\n".join(lines)
 
@@ -241,7 +255,8 @@ def main():
         or "airport" in kind.lower()
     )
     if route_wrong and SYSTEM == "Darwin":
-        findings.append(("ROUTE", mac_route_fix(ip, iface)))
+        wifi = "wi-fi" in kind.lower() or "airport" in kind.lower()
+        findings.append(("ROUTE" if wifi else "SOURCE", mac_route_fix(ip, iface, src)))
     elif link_local and not str(src).startswith("169.254."):
         findings.append(
             (

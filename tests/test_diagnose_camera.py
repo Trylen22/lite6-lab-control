@@ -107,11 +107,24 @@ class DiagnoseCameraTests(unittest.TestCase):
         with patch.object(dc, "run", side_effect=fake_run):
             text = dc.mac_route_fix(IP, "en0")
         self.assertIn("not your wired adapter en7 (USB 10/100/1000 LAN", text)
-        self.assertIn(f"sudo route -n add -host {IP} -interface en7", text)
-        self.assertIn("route -n change", text)
+        self.assertIn(
+            "route -n change -net 169.254.0.0 -netmask 255.255.0.0 -interface en7 -ifa 169.254.32.7",
+            text,
+        )
+        self.assertIn("Do NOT use 'route add -host", text)
         self.assertIn("Set Service Order", text)
         self.assertIn("scripts/mac_lab_network.py", text)
         self.assertNotIn("ifconfig en7 inet", text)  # it already has 169.254
+
+    def test_right_adapter_wrong_source_is_named_source(self):
+        # Seen on a real Mac 2026-10-28: route on en7, but sent from the
+        # adapter's 192.168.1.100, so the camera never answered.
+        with patch.object(dc, "mac_wired_adapters",
+                          return_value=[("USB 10/100/1000 LAN", "en7", ["192.168.1.100", "169.254.1.11"])]):
+            code, text = verdict(src="192.168.1.100", pinged=False, tcp="timeout", devices=())
+        self.assertIn("[SOURCE]", text)
+        self.assertIn("sent FROM 192.168.1.100", text)
+        self.assertNotIn("not your wired adapter", text)
 
     def test_local_network_verdict_is_mac_only(self):
         code, text = verdict(

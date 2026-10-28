@@ -14,7 +14,7 @@ python3.12 -m venv .venv
 ./run.sh
 ```
 
-`mac_lab_network.py` installs one small LaunchDaemon (`/Library/LaunchDaemons/local.lite6.lab-network.plist`) that, at boot and every 15 s, keeps the wired adapter's lab addresses (`192.168.1.201`, a `169.254` address) and host routes to the arm and camera. That replaces every temporary `ifconfig`/`route` command below, which macOS forgets on reboot, sleep or replug. It does nothing while the cable is out and never changes Wi-Fi or the default route. Use `--arm-ip` if `.201` is taken, `--device enX` with several adapters, and `--undo` to remove it.
+`mac_lab_network.py` installs one small LaunchDaemon (`/Library/LaunchDaemons/local.lite6.lab-network.plist`) that, at boot and every 15 s, keeps the wired adapter's lab addresses (an existing `192.168.1.x` such as `.100` is kept, else `.201`; a `169.254` address) and the `169.254.0.0/16` route on that adapter, **sent from its 169.254 address**. It also removes a broken `-host … -interface` camera route left from earlier attempts. That replaces every temporary `ifconfig`/`route` command below, which macOS forgets on reboot, sleep or replug. It does nothing while the cable is out and never changes Wi-Fi or the default route. Use `--arm-ip` if `.201` is taken, `--device enX` with several adapters, and `--undo` to remove it.
 
 The first time Python contacts the camera, macOS may ask to allow **Local Network** access for your terminal app: allow it. If the arm shows state 4 after power-up, press **Wake arm** in the deck.
 
@@ -29,6 +29,7 @@ It is read-only (route, ping, one TCP probe of port 11490, DepthAI discovery) an
 | Verdict | Meaning | Fix |
 |---|---|---|
 | `ROUTE` | Traffic to `169.254.1.222` leaves through Wi-Fi or an interface without a `169.254.x.x` address | Run `scripts/mac_lab_network.py` (or the temporary commands below) |
+| `SOURCE` | The route is on the Ethernet adapter, but packets leave from its `192.168.1.x` address | The camera only answers 169.254 sources: run `scripts/mac_lab_network.py`, or the `-ifa` route below. Proof: `ping -S 169.254.1.11 -c 2 169.254.1.222` answers while plain `ping` does not |
 | `NO PATH` | Nothing answers | Link light, PoE power (a USB Ethernet adapter supplies none), switch |
 | `ADDRESS` | Discovery sees an OAK at another address | The camera took a DHCP address; use it (`--ip`, `local/lab.toml`) |
 | `LOCAL NETWORK` | `ping` works but Python can't connect | Allow the launching app (Terminal, iTerm, VS Code, Cursor, the agent's app) under **Privacy & Security › Local Network**, then quit and reopen it |
@@ -92,10 +93,11 @@ sudo ifconfig enX inet 192.168.1.201 netmask 255.255.255.0 alias
 sudo ifconfig enX inet 169.254.1.11 netmask 255.255.0.0 alias
 ```
 
-Check the selected camera route again. If it points to Wi-Fi, a VPN, or another interface, add a specific route through the lab adapter:
+Then move the whole link-local range to the lab adapter, **sending from its 169.254 address** (`-ifa`). Without `-ifa`, macOS sends from the adapter's main address (e.g. `192.168.1.100`) and the camera, which only knows link-local, never answers:
 
 ```bash
-sudo route -n add -host 169.254.1.222 -interface enX
+sudo route -n change -net 169.254.0.0 -netmask 255.255.0.0 -interface enX -ifa 169.254.1.11
+# 'not in table'?  use: sudo route -n add -net 169.254.0.0 -netmask 255.255.0.0 -interface enX -ifa 169.254.1.11
 route -n get 169.254.1.222
 route -n get 192.168.1.152
 ping -c 2 169.254.1.222
@@ -104,13 +106,12 @@ ping -c 2 192.168.1.152
 
 **Why this step matters on a Mac:** macOS keeps a single route for the whole `169.254.0.0/16` link-local range and binds it to the first network service in its order, usually Wi-Fi. Even with a `169.254` address on the Ethernet adapter, camera traffic then leaves through Wi-Fi and the camera is never found (`netstat -rn -f inet | grep 169.254` shows which interface owns it). Three fixes, in order of permanence: turn Wi-Fi off to test; add the host route above for this session; or in **System Settings › Network › ⋯ › Set Service Order…** drag the Ethernet adapter above Wi-Fi so it owns link-local permanently. `scripts/diagnose_camera.py` prints these commands with the actual adapter name.
 
-If the route command reports `File exists`, a route to the camera already exists, possibly through Wi-Fi. Replace it with `sudo route -n change -host 169.254.1.222 -interface enX` instead of repeatedly adding or deleting routes. A working robot ping does not establish a working camera route. Keep normal Wi-Fi Internet routing separate from this dedicated lab link. A VPN can also alter local routing.
+**Do not use `route add -host 169.254.1.222 -interface enX`.** On macOS that creates a static entry mapping the camera to the Mac's *own* MAC address (`arp -a` shows `169.254.1.222 at <enX's MAC> permanent`), so nothing reaches the camera. Found on a real Mac on 2026-10-28. Undo it with `sudo route -n delete -host 169.254.1.222; sudo arp -d 169.254.1.222`. A working robot ping does not establish a working camera route. Keep normal Wi-Fi Internet routing separate from this dedicated lab link. A VPN can also alter local routing.
 
 These commands are temporary host-side configuration; they do not reconfigure either device. Remove only the aliases and explicit route you added when finished:
 
 ```bash
-# Run the route removal only if you added that explicit host route above.
-sudo route -n delete -host 169.254.1.222
+# The 169.254 route returns to its default owner at the next replug/reboot.
 sudo ifconfig enX inet 169.254.1.11 -alias
 sudo ifconfig enX inet 192.168.1.201 -alias
 ```

@@ -7,10 +7,14 @@ is forgotten by macOS on reboot or replug, and macOS otherwise sends all
 169.254.x.x camera traffic out Wi-Fi. This installs one small LaunchDaemon
 that, at boot and every 15 s, makes sure the wired adapter has
 
-  * a 192.168.1.x address for the arm (default 192.168.1.201),
+  * a 192.168.1.x address for the arm (keeps one you set, else 192.168.1.201),
   * a 169.254.x.x address for the camera (macOS self-assigns one; if not,
     169.254.1.11),
-  * host routes to the arm and the camera through that adapter.
+  * the 169.254.0.0/16 route on that adapter, sending FROM its 169.254
+    address. Tested failure on a Mac (2026-10-28): with the adapter set to
+    192.168.1.100, camera packets left from .100 and the camera, which only
+    knows link-local, never answered. A "-host ... -interface" route is worse:
+    macOS maps the camera to the Mac's own MAC. Both are cleaned up here.
 
 It does nothing while the adapter is unplugged and never touches Wi-Fi, the
 default route, the camera or the arm. Undo removes both installed files.
@@ -27,6 +31,7 @@ for the app that launches Python still has to be allowed by hand.
 import argparse
 from pathlib import Path
 import platform
+import re
 import subprocess
 import sys
 import tempfile
@@ -34,7 +39,7 @@ import time
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from diagnose_camera import mac_wired_adapters, run  # noqa: E402
+from diagnose_camera import mac_wired_adapters, run, source_address  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 LABEL = "local.lite6.lab-network"
@@ -53,22 +58,37 @@ def station_addresses():
 
 
 def helper_script(dev, arm_ip, my_arm_ip, camera_ip):
-    subnet = arm_ip.rsplit(".", 1)[0]
+    subnet = re.escape(arm_ip.rsplit(".", 1)[0] + ".")
     return f"""#!/bin/sh
 # Installed by LITE6 scripts/mac_lab_network.py (undo: --undo).
 # Keeps the lab link on {dev} usable; does nothing while it is unplugged.
 DEV={dev}
-ifconfig "$DEV" 2>/dev/null | grep -q "status: active" || exit 0
-ifconfig "$DEV" | grep -q "inet {my_arm_ip} " ||
+STATE=/var/run/lite6-lab-network
+ifconfig "$DEV" 2>/dev/null | grep -q "status: active" || {{ rm -f "$STATE"; exit 0; }}
+# Arm subnet: keep any address the owner already set, else add ours.
+ifconfig "$DEV" | grep -q "inet {subnet}" ||
   ifconfig "$DEV" inet {my_arm_ip} netmask 255.255.255.0 alias
 ifconfig "$DEV" | grep -q "inet 169\\.254\\." ||
   ifconfig "$DEV" inet {CAMERA_ALIAS} netmask 255.255.0.0 alias
-# Host routes win over Wi-Fi's link-local route and a home {subnet}.x network.
-for HOST in {camera_ip} {arm_ip}; do
-  route -n get "$HOST" 2>/dev/null | grep -q "interface: $DEV$" ||
-    route -n change -host "$HOST" -interface "$DEV" >/dev/null 2>&1 ||
-    route -n add -host "$HOST" -interface "$DEV" >/dev/null 2>&1
-done
+LL=$(ifconfig "$DEV" | awk '$1=="inet" && $2 ~ /^169\\.254\\./ {{print $2; exit}}')
+[ -n "$LL" ] || exit 0
+ROUTE=$(route -n get {camera_ip} 2>/dev/null)
+# "route add -host CAMERA -interface DEV" maps the camera to this Mac's own
+# MAC address, so nothing ever reaches it. Remove such a static host route.
+if echo "$ROUTE" | grep "flags:" | grep HOST | grep -q STATIC; then
+  route -n delete -host {camera_ip} >/dev/null 2>&1
+  arp -d {camera_ip} >/dev/null 2>&1
+  rm -f "$STATE"
+fi
+if echo "$ROUTE" | grep -q "interface: $DEV$" &&
+  [ "$(cat "$STATE" 2>/dev/null)" = "$DEV $LL" ]; then
+  exit 0
+fi
+# The whole link-local range out the lab adapter, SENT FROM its 169.254
+# address (-ifa): the camera has no route back to any other source address.
+{{ route -n change -net 169.254.0.0 -netmask 255.255.0.0 -interface "$DEV" -ifa "$LL" ||
+  route -n add -net 169.254.0.0 -netmask 255.255.0.0 -interface "$DEV" -ifa "$LL"; }} \\
+  >/dev/null 2>&1 && echo "$DEV $LL" > "$STATE"
 exit 0
 """
 
@@ -156,15 +176,24 @@ def main():
     arm_ip, camera_ip = station_addresses()
     dev, info = pick_device(a.device)
     addrs = info[2] if info else []
-    if a.arm_ip not in addrs and address_in_use(a.arm_ip):
+    subnet = arm_ip.rsplit(".", 1)[0] + "."
+    mine = next((x for x in addrs if x.startswith(subnet)), None)
+    if mine:
+        a.arm_ip = mine  # Keep the address the owner already set.
+    elif address_in_use(a.arm_ip):
         sys.exit(f"{a.arm_ip} already answers on the network; pick a free one with --arm-ip.")
+    other = route_interface(arm_ip)
+    if other and other != dev and not mine:
+        print(f"Note: {subnet}x currently routes via {other} (a home network on the same "
+              f"subnet?). The arm needs {dev}; if it stays unreachable, leave that network.")
 
     print(f"Lab adapter: {dev}{f' ({info[0]})' if info else ''}, addresses now: "
           f"{', '.join(addrs) or 'none'}")
     print(f"Will install a LaunchDaemon that keeps, on {dev} only:")
-    print(f"  {a.arm_ip}/24 for the arm at {arm_ip}")
+    print(f"  {a.arm_ip}/24 for the arm at {arm_ip}" + (" (already set; kept)" if mine else ""))
     print(f"  a 169.254 address for the camera at {camera_ip}")
-    print(f"  host routes to {camera_ip} and {arm_ip} through {dev}")
+    print(f"  the 169.254.0.0/16 route on {dev}, sent from that 169.254 address")
+    print("  and removes a broken '-host ... -interface' camera route if one exists")
     print(f"Files: {PLIST}\n       {HELPER}")
     if not a.yes and input("Install? [y/N] ").strip().lower() not in ("y", "yes"):
         print("Nothing changed.")
@@ -179,17 +208,22 @@ def main():
             if done.returncode != 0 and "bootout" not in cmd[2]:
                 sys.exit(f"Failed: {' '.join(cmd)}")
 
+    def camera_ok():
+        return route_interface(camera_ip) == dev and str(
+            source_address(camera_ip)).startswith("169.254.")
+
     for _ in range(20):  # The daemon runs at load; give it a moment.
-        if route_interface(camera_ip) == dev and route_interface(arm_ip) == dev:
+        if camera_ok():
             break
         time.sleep(0.5)
-    ok = True
-    for name, host in (("camera", camera_ip), ("arm", arm_ip)):
-        iface = route_interface(host)
-        print(f"{name:6} {host}: route via {iface}  {'OK' if iface == dev else 'NOT YET'}")
-        ok &= iface == dev
+    src = source_address(camera_ip)
+    cam = route_interface(camera_ip)
+    arm = route_interface(arm_ip)
+    print(f"camera {camera_ip}: via {cam} from {src}  {'OK' if camera_ok() else 'NOT YET'}")
+    print(f"arm    {arm_ip}: via {arm}  {'OK' if arm == dev else 'NOT YET'}")
+    ok = camera_ok() and arm == dev
     print("Installed: survives reboot, sleep and replug." if ok else
-          "Installed, but routes are not on the lab adapter yet; is the cable in?")
+          "Installed, but the lab adapter is not carrying both yet; is the cable in?")
     print("Next: .venv/bin/python scripts/diagnose_camera.py, then ./run.sh")
     print("If it says LOCAL NETWORK, allow your terminal app under System Settings › "
           "Privacy & Security › Local Network.")
