@@ -524,7 +524,7 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
                                 raise RuntimeError("Hand following active")
                             if mover and mover.running():
                                 raise RuntimeError("Arm is moving to a start pose")
-                            message = wake_arm()
+                            message = wake_arm(robot.ip)
                     except RuntimeError as exc:
                         self.send_json(409, {"error": str(exc)})
                         return

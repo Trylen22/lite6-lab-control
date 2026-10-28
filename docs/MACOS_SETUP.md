@@ -2,6 +2,22 @@
 
 The project has been tested on Linux x86_64 with Python 3.12. This Mac procedure combines the known station configuration with vendor troubleshooting guidance; it has not yet been validated on a collaborator's Mac. A connection failure needs its exact error before it can be attributed to networking, permissions, packages, or the camera.
 
+## Quick start (one time per Mac)
+
+```bash
+git clone https://github.com/Trylen22/lite6-lab-control.git && cd lite6-lab-control
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt   # Intel Mac: requirements-deck.txt
+# plug in the lab Ethernet, then:
+.venv/bin/python scripts/mac_lab_network.py           # asks for your password once
+.venv/bin/python scripts/diagnose_camera.py           # should end "No blocker found"
+./run.sh
+```
+
+`mac_lab_network.py` installs one small LaunchDaemon (`/Library/LaunchDaemons/local.lite6.lab-network.plist`) that, at boot and every 15 s, keeps the wired adapter's lab addresses (`192.168.1.201`, a `169.254` address) and host routes to the arm and camera. That replaces every temporary `ifconfig`/`route` command below, which macOS forgets on reboot, sleep or replug. It does nothing while the cable is out and never changes Wi-Fi or the default route. Use `--arm-ip` if `.201` is taken, `--device enX` with several adapters, and `--undo` to remove it.
+
+The first time Python contacts the camera, macOS may ask to allow **Local Network** access for your terminal app: allow it. If the arm shows state 4 after power-up, press **Wake arm** in the deck.
+
 ## If the camera is never found, diagnose once
 
 ```bash
@@ -12,7 +28,7 @@ It is read-only (route, ping, one TCP probe of port 11490, DepthAI discovery) an
 
 | Verdict | Meaning | Fix |
 |---|---|---|
-| `ROUTE` | Traffic to `169.254.1.222` leaves through Wi-Fi or an interface without a `169.254.x.x` address | Add the aliases and host route below |
+| `ROUTE` | Traffic to `169.254.1.222` leaves through Wi-Fi or an interface without a `169.254.x.x` address | Run `scripts/mac_lab_network.py` (or the temporary commands below) |
 | `NO PATH` | Nothing answers | Link light, PoE power (a USB Ethernet adapter supplies none), switch |
 | `ADDRESS` | Discovery sees an OAK at another address | The camera took a DHCP address; use it (`--ip`, `local/lab.toml`) |
 | `LOCAL NETWORK` | `ping` works but Python can't connect | Allow the launching app (Terminal, iTerm, VS Code, Cursor, the agent's app) under **Privacy & Security › Local Network**, then quit and reopen it |
@@ -65,7 +81,7 @@ route -n get 192.168.1.152
 
 Match the Ethernet adapter's hardware port to its device name. The camera and arm require different subnets on that wired interface. Our Linux NetworkManager instructions do not apply to macOS.
 
-## Add temporary lab addresses
+## Add temporary lab addresses (manual alternative)
 
 Coordinate unused addresses with the station owner. The examples below use `enX` as a placeholder: replace it with the actual Ethernet device. `192.168.1.201` and `169.254.1.11` are candidates, not reserved assignments. Do not use these examples if another lab device already owns them. The original development laptop uses `.200` and `.10` respectively.
 

@@ -110,6 +110,7 @@ class DiagnoseCameraTests(unittest.TestCase):
         self.assertIn(f"sudo route -n add -host {IP} -interface en7", text)
         self.assertIn("route -n change", text)
         self.assertIn("Set Service Order", text)
+        self.assertIn("scripts/mac_lab_network.py", text)
         self.assertNotIn("ifconfig en7 inet", text)  # it already has 169.254
 
     def test_local_network_verdict_is_mac_only(self):

@@ -21,7 +21,7 @@ These values were read from the working station configuration and the laptop's s
 
 The robot and camera are on different subnets even though they share an Ethernet switch. A successful robot connection does not establish camera reachability. The camera needs PoE power. The switch management address has not been confirmed; no switch login is required by this application. There is no established permanent SSH host for this project.
 
-For a second laptop, select unused host addresses on both subnets with the station owner. For example, `192.168.1.201/24` and `169.254.1.11/16` are candidates only if confirmed unused. Keep the device addresses above unchanged. In a dedicated wired NetworkManager profile, add both host addresses and an explicit `169.254.0.0/16` route through the wired interface. This lab-only connection does not need a default gateway; preserve the computer's normal Internet connection separately.
+For a second laptop, select unused host addresses on both subnets with the station owner. For example, `192.168.1.201/24` and `169.254.1.11/16` are candidates only if confirmed unused. Keep the device addresses above unchanged. In a dedicated wired NetworkManager profile, add both host addresses and an explicit `169.254.0.0/16` route through the wired interface. This lab-only connection does not need a default gateway; preserve the computer's normal Internet connection separately. Turn autoconnect on (`nmcli connection modify lite6-lab connection.autoconnect yes connection.autoconnect-retries 0`) so the link returns by itself at boot, wake and cable replug; it was off on the original laptop until 2026-10-28.
 
 Inspect the selected interface and routes before changing them:
 

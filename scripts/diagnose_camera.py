@@ -135,6 +135,8 @@ def mac_route_fix(ip, wrong_iface):
         f"  2) this session:  sudo route -n add -host {ip} -interface {dev}",
         f"     (if it says 'File exists':  sudo route -n change -host {ip} -interface {dev})",
         f"  3) lasting: System Settings › Network › ⋯ › Set Service Order…, drag {port} above Wi-Fi",
+        "  4) permanent, recommended (survives reboot and replug):",
+        "     .venv/bin/python scripts/mac_lab_network.py",
     ]
     if not any(a.startswith("169.254.") for a in addrs):
         lines.append(

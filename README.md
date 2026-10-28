@@ -40,6 +40,8 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ```
 
+On a Mac: use `python3.12`, then once run `.venv/bin/python scripts/mac_lab_network.py` so the lab Ethernet survives reboots and replugs; see [Mac setup](docs/MACOS_SETUP.md).
+
 On Windows: `py -m venv .venv` then `.venv\Scripts\python -m pip install -r requirements.txt`. `requirements.txt` installs everything, including Hand puppy; the `requirements-*.txt` files are smaller subsets for partial installs.
 
 For a fresh-clone simulator preview without lab hardware, use the explicit observer configuration:
@@ -52,7 +54,7 @@ Open `http://127.0.0.1:8100/#lab` and select an example. The Lab page simulates 
 
 **Start first, connect later:** the launcher always brings the page up, even with no camera or arm attached. Without `local/lab.toml` it uses the published station addresses. The camera producer and the robot observer keep retrying in the background, so plugging in the Ethernet is enough; the page fills in within about 10 seconds. Reconnecting only resumes read-only status. Nothing moves until an operator presses a motion button and its preflight passes.
 
-**Hardware behavior:** selecting Color detection or Hand puppy can move the arm to its configured demo pose. That same click readies a stopped, error-free arm (state 5 to idle, position mode) even when it is already parked at the pose, so the demo buttons work right after power-up. A controller error is never cleared by the page; clear it in Studio. Start following, Pick & Place, and Pick to Shelf are physical actions. Use the Lab URL for an offline programming demonstration.
+**Hardware behavior:** selecting Color detection or Hand puppy can move the arm to its configured demo pose. That same click readies an error-free arm that is stopped (state 5) or has its motors off after power-up (state 4), even when it is already parked at the pose. The **Wake arm** button under every demo does only that: motors on, idle, position mode, no motion. A controller error is never cleared by the page; clear it in Studio. Start following, Pick & Place, and Pick to Shelf are physical actions. Use the Lab URL for an offline programming demonstration.
 
 Optional models are downloaded explicitly:
 

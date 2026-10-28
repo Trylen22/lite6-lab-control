@@ -169,19 +169,21 @@ class HandServoArm:
         self.arm.set_state(0)
 
 
-def wake_arm():
+def wake_arm(robot_ip):
     """Wake button: motors-off (state 4, no error) or stopped (5) -> ready (2).
 
     Never moves the arm and never clears an error or warning code.
     """
-    lease = (ROOT / "local/calibration-motion.lock").open("w")
+    lock_path = ROOT / "local/calibration-motion.lock"
+    lock_path.parent.mkdir(exist_ok=True)  # Fresh clone: local/ is not tracked.
+    lease = lock_path.open("w")
     try:
         lock_exclusive(lease)
     except BlockingIOError:
         lease.close()
         raise RuntimeError("Another controller owns the arm") from None
-    config = tomllib.loads((ROOT / "local/lab.toml").read_text())
-    arm = XArmAPI(config["robot"]["ip"], do_not_open=True, enable_report=True)
+    # The deck's own address, so Wake works on a fresh clone with no local/.
+    arm = XArmAPI(robot_ip, do_not_open=True, enable_report=True)
     try:
         arm.connect()
         time.sleep(0.5)
