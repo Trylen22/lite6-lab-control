@@ -168,9 +168,14 @@
               The physical E-stop is the only immediate stop. These buttons
               ask for one guarded cycle each.
             </p>
-            <button id="mask-toggle" class="text-button" aria-pressed="false">
-              ◧ Show threshold mask
-            </button>
+            <div class="panel-foot">
+              <button id="mask-toggle" class="text-button" aria-pressed="false">
+                ◧ Show threshold mask
+              </button>
+              <span id="wake-message" class="wake-message" role="status"></span>
+              <button id="wake" class="gel quiet wake" disabled
+                title="Turn the motors on and set ready. Never moves the arm.">Wake arm</button>
+            </div>
           </aside>
         </div>
 

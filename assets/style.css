@@ -670,6 +670,31 @@ nav {
   text-underline-offset: 3px;
 }
 
+.panel-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.panel-foot .text-button {
+  margin-top: 0;
+}
+
+.wake-message {
+  flex: 1;
+  text-align: right;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.gel.wake {
+  flex: none;
+  min-height: 38px;
+  padding: 0 18px;
+  font-size: 13px;
+}
+
 .text-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;

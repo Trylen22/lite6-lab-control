@@ -208,6 +208,28 @@ async function goToStart(task) {
   }
 }
 
+let waking = false;
+async function wakeArm() {
+  waking = true;
+  $("wake").disabled = true;
+  $("wake-message").textContent = "Waking…";
+  try {
+    const response = await fetch("/api/wake", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Labdeck-Action": "wake" },
+      body: "{}",
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Wake failed");
+    $("wake-message").textContent = result.message;
+  } catch (error) {
+    $("wake-message").textContent = error.message;
+  } finally {
+    waking = false;
+  }
+}
+$("wake").addEventListener("click", wakeArm);
+
 async function configure(patch) {
   if (pending) return;
   pending = true;
@@ -412,6 +434,11 @@ async function refresh() {
     $("follow-start").disabled =
       startingFollow || running || followRunning || !data.follow_ready?.ready;
     $("follow-stop").disabled = !followRunning;
+    // Wake: motors off after power-up (4) or software-stopped (5), no error.
+    const armState = r.values?.state;
+    $("wake").disabled =
+      waking || running || followRunning || moving || !r.fresh ||
+      r.values?.errors?.join() !== "0,0" || ![4, 5].includes(armState);
     $("follow-message").textContent = followRunning
       ? data.follow.message
       : (moving || transfer.state === "failed") && transfer.task === "hand"

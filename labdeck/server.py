@@ -26,6 +26,7 @@ from labdeck.yolo import YoloDetector
 from labdeck.display import upright, upright_detections
 from labdeck.hands import HandDetector, draw_hands, MODEL as HAND_MODEL
 from labdeck.hand_follow import HandFollower
+from labdeck.hand_servo import wake_arm
 from labdeck.start_pose import StartPoseMover
 from labdeck.jobs import JobManager
 from labdeck.automatic_pick import load_profile, PROFILE
@@ -453,7 +454,8 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
 
         def do_POST(self):
             # Separate host-only settings from the explicit one-cycle action.
-            # There are no arbitrary coordinates, reset/enable or raw SDK routes.
+            # No arbitrary coordinates, fault resets or raw SDK routes; Wake only
+            # enables motors of an error-free arm.
             if self.path not in (
                 "/api/vision",
                 "/api/pick-place",
@@ -461,6 +463,7 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
                 "/api/follow/stop",
                 "/api/follow/heartbeat",
                 "/api/go-start",
+                "/api/wake",
             ):
                 self.send_json(
                     404, {"error": "No such action; robot commands are unavailable"}
@@ -502,6 +505,30 @@ def make_handler(vision, robot, stop, jobs=None, follower=None, mover=None):
                         self.send_json(409, {"error": str(exc)})
                         return
                     self.send_json(202, state)
+                    return
+                if self.path == "/api/wake":
+                    # Motors on + ready state only; never moves, never clears faults.
+                    if (
+                        self.headers.get("X-Labdeck-Action") != "wake"
+                        or self.headers.get("Sec-Fetch-Site") == "cross-site"
+                    ):
+                        self.send_json(403, {"error": "Use the local Wake button"})
+                        return
+                    if patch != {}:
+                        raise ValueError("Wake accepts no settings")
+                    try:
+                        with dispatch_lock:
+                            if jobs and jobs.snapshot()["state"] == "running":
+                                raise RuntimeError("Pickup cycle active")
+                            if follower and follower.snapshot()["state"] == "running":
+                                raise RuntimeError("Hand following active")
+                            if mover and mover.running():
+                                raise RuntimeError("Arm is moving to a start pose")
+                            message = wake_arm()
+                    except RuntimeError as exc:
+                        self.send_json(409, {"error": str(exc)})
+                        return
+                    self.send_json(200, {"message": message})
                     return
                 if self.path.startswith("/api/follow/"):
                     if (

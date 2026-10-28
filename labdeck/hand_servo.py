@@ -167,3 +167,33 @@ class HandServoArm:
         # Position mode + ready: the arm holds where it is.
         self.arm.set_mode(0)
         self.arm.set_state(0)
+
+
+def wake_arm():
+    """Wake button: motors-off (state 4, no error) or stopped (5) -> ready (2).
+
+    Never moves the arm and never clears an error or warning code.
+    """
+    lease = (ROOT / "local/calibration-motion.lock").open("w")
+    try:
+        lock_exclusive(lease)
+    except BlockingIOError:
+        lease.close()
+        raise RuntimeError("Another controller owns the arm") from None
+    config = tomllib.loads((ROOT / "local/lab.toml").read_text())
+    arm = XArmAPI(config["robot"]["ip"], do_not_open=True, enable_report=True)
+    try:
+        arm.connect()
+        time.sleep(0.5)
+        if value(arm.get_err_warn_code()) != [0, 0]:
+            raise RuntimeError("Controller reports an error; clear it in Studio")
+        state = value(arm.get_state())
+        if state == 2 and arm.mode == 0:
+            return "Arm already awake"
+        waker = HandServoArm.__new__(HandServoArm)
+        waker.arm = arm
+        waker.wake_motors()
+        return "Arm awake and ready"
+    finally:
+        arm.disconnect()
+        lease.close()
