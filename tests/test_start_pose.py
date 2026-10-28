@@ -132,6 +132,48 @@ class TransferArmTests(unittest.TestCase):
         self.assertEqual(sdk.moves, [])
 
 
+class PoweredUpSDK(FakeSDK):
+    """Fresh power-up: motors off, state 4, no error code."""
+
+    def __init__(self, errors=(0, 0)):
+        super().__init__(PICKUP)
+        self.state, self.errors = 4, list(errors)
+        self.motor_enable_states = [0] * 8
+        self.tcp_offset = [0] * 6
+        self.is_simulation_robot = False
+        self.collision_sensitivity = 3
+
+    def motion_enable(self, enable):
+        self.motor_enable_states = [1] * 8
+        self.state = 5
+        return 0
+
+    def get_tgpio_output_digital(self):
+        return 0, [0, 1]
+
+    def get_tool_digital_input(self):
+        return 0, [0, 0]
+
+
+class WakeTests(unittest.TestCase):
+    def setup_arm(self, sdk):
+        arm = fake_arm(sdk)
+        arm.reference = {"tcp_offset_mm_degrees": [0] * 6}
+        return arm
+
+    def test_motors_off_after_power_up_are_enabled(self):
+        sdk = PoweredUpSDK()
+        self.setup_arm(sdk).check_setup()
+        self.assertEqual(sdk.state, 2)
+        self.assertTrue(all(sdk.motor_enable_states[:6]))
+
+    def test_real_fault_is_not_woken(self):
+        sdk = PoweredUpSDK(errors=(23, 0))
+        with self.assertRaisesRegex(RuntimeError, "clear it first"):
+            self.setup_arm(sdk).check_setup()
+        self.assertFalse(any(sdk.motor_enable_states))
+
+
 class FakeArmContext:
     def __init__(self, joints=HAND):
         self.joints_now = list(joints)

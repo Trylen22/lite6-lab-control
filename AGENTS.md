@@ -88,7 +88,9 @@ mode (mode 1) streams J4/J5 targets at 50 Hz, <=20 deg/s, <=80 deg/s^2, within
 +-30/+-25 deg of the pose at Start (hand_servo.py, hand_follow.py). Open palm
 follows, fist glides back to that ready pose, no hand holds then homes after
 3 s, Stop/heartbeat loss homes and restores position mode + ready state.
-Start may resume a software-stopped arm (state 5); it never clears faults.
+Start may resume a software-stopped arm (state 5) and, since 2026-10-28 at the
+operator's request, enable the motors of a powered-up arm (state 4 with error
+codes [0, 0]) on a demo click or Start; it never clears faults.
 The hand calibration no longer expires (camera-mount geometry, not time);
 start is refused >15 deg from the calibrated anchor. Base/shoulder/elbow/roll
 stay fixed and suction stays released. `local/hand-follow.json` stays ignored.

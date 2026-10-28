@@ -278,7 +278,7 @@ class HandFollower:
             values = robot["values"]
             if values["errors"] != [0, 0]:
                 return False, "Controller reports an error; clear it first"
-            if values["state"] not in (2, 5):
+            if values["state"] not in (2, 4, 5):  # 4 + no error: motors off
                 return False, f"Robot state {values['state']}; must be idle or stopped"
             self.check_anchor(values["joints"], profile)
             kind = classify_hand(self.vision.snapshot(), profile)[0]

@@ -9,7 +9,8 @@ the caller (FollowPolicy in hand_follow.py) must keep each step small.
 Entering servo mode is a controller mode change (set_mode(1) + set_state(0)).
 Leaving always restores position mode and ready state, so pickup and the
 rest of the deck find the arm the way they expect. This also resumes a
-software-stopped arm (state 5). It never clears faults (state 4 / error
+software-stopped arm (state 5) and wakes a powered-up arm whose motors are
+off (state 4 with no error code). It never clears faults (error/warning
 codes): those still require the operator.
 """
 
@@ -68,11 +69,33 @@ class HandServoArm:
             self.arm.disconnect()
             self.lease.close()
 
+    def wake_motors(self):
+        """Power-up leaves every motor off: state 4 with error codes [0, 0].
+
+        With no error or warning, enabling the motors and setting ready state
+        is the same thing Studio's Enable button does; the arm holds where it
+        is. A real fault (non-zero code) never reaches here.
+        """
+        a = self.arm
+        if a.motion_enable(True) != 0:
+            raise RuntimeError("Controller refused to enable motors")
+        if a.set_mode(0) != 0 or a.set_state(0) != 0:
+            raise RuntimeError("Controller refused ready state")
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if value(a.get_state()) == 2 and all(a.motor_enable_states[:6]):
+                return
+            time.sleep(0.1)
+        raise RuntimeError("Motors did not enable; check the arm in Studio")
+
     def check_setup(self):
-        """Same mounting/tool invariants as pickup, but accept stopped state 5."""
+        """Same mounting/tool invariants as pickup, but accept stopped state 5
+        and wake motors that are simply off after power-up."""
         a = self.arm
         if value(a.get_err_warn_code()) != [0, 0]:
             raise RuntimeError("Controller reports an error/warning; clear it first")
+        if value(a.get_state()) == 4:
+            self.wake_motors()
         if value(a.get_state()) not in (2, 5) or a.mode != 0:
             raise RuntimeError("Arm must be idle or stopped in position mode")
         if (
