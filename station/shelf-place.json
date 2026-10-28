@@ -1,0 +1,46 @@
+{
+  "source_trace": "shelf-path-20261023T014633.jsonl",
+  "drop_joints_deg": [
+    -78.0036,
+    7.886,
+    98.1881,
+    -171.1271,
+    -40.5964,
+    181.2616
+  ],
+  "top_pose": [
+    265.3,
+    40.87,
+    477.9,
+    175.26,
+    -42.53,
+    15.22
+  ],
+  "drop_pose": [
+    70.24,
+    -292.89,
+    488.87,
+    -165.04,
+    -48.62,
+    -89.57
+  ],
+  "traced_turn_min_z_mm": 473.01,
+  "above_drop_joints_deg": [
+    -77.9734,
+    20.4435,
+    130.2024,
+    -173.3247,
+    -59.8666,
+    184.7296
+  ],
+  "above_drop_height_mm": 60,
+  "note": "2026-10-23: turn raised 60 mm above the drop after the hanging block clipped the shelf lip at Z ~477; set-down is vertical.",
+  "previous_top_joints_deg": [
+    7.971,
+    -0.3168,
+    88.0433,
+    -180.0717,
+    -45.8176,
+    175.2494
+  ]
+}

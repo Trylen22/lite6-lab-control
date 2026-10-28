@@ -1,0 +1,48 @@
+{
+  "hand_schema": 2,
+  "profile_id": "f0ce7f2b762947b4ab7dd6de46b74aab",
+  "camera_session": "0b75338a2ca9484ca08448cb9500dad4",
+  "resolution": [
+    640,
+    400
+  ],
+  "anchor_joints_deg": [
+    6.859393,
+    -14.931681,
+    48.663998,
+    -67.085508,
+    -67.634746,
+    58.638506
+  ],
+  "joint_axes": [
+    3,
+    4
+  ],
+  "joint_min_deg": [
+    -72.085508,
+    -72.634746
+  ],
+  "joint_max_deg": [
+    -62.085508000000004,
+    -62.63474600000001
+  ],
+  "jacobian_px_per_degree": [
+    [
+      3.8891652425130205,
+      6.631439208984375
+    ],
+    [
+      -5.779108683268229,
+      3.6848627726236978
+    ]
+  ],
+  "calibrated_utc": "2026-10-23T00:24:26.780171+00:00",
+  "expires_utc": "2026-10-23T02:24:26.780171+00:00",
+  "validation": {
+    "holdout_error_px": 0.6566959671539285,
+    "return_limit_px": 2,
+    "opposing_response_limit_px_per_degree": 1.5,
+    "purpose": "25 px dead-zone angular centering; not grasp-position calibration",
+    "basis": "Static-scene flow; direction/gain only, not hand depth"
+  }
+}

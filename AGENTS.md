@@ -4,7 +4,11 @@
 
 Read `docs/AGENT_SETUP.md` and `docs/LAB_SETUP.md` before setup work. Known
 station network addresses are published in `config/lab.station.example.toml`;
-runtime settings and measured motion profiles remain in ignored `local/`.
+runtime settings and measured motion profiles live in ignored `local/`. Since
+2026-10-28 the station's calibration (same arm, camera and mount on every
+computer) is also published in `station/`; the deck copies any missing file
+into `local/` at launch and never overwrites one. Recalibration writes
+`local/`; copy a validated result into `station/` and commit it to share it.
 Use `config/lab.simulator.example.toml` and `/#lab` for a fresh-clone Lab preview.
 Historical statements below about an operator being present and movement being
 authorized describe the original supervised development session. Do not infer

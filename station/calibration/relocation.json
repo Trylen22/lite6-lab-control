@@ -1,0 +1,127 @@
+{
+  "captured_utc": "2026-10-22T22:10:59.975989+00:00",
+  "executed": true,
+  "plan": {
+    "start": [
+      229.152252,
+      74.029327,
+      265.717163,
+      -179.397268,
+      -2.048553,
+      2.482282
+    ],
+    "target": [
+      269.152252,
+      74.029327,
+      265.717163,
+      -179.397268,
+      -2.048553,
+      2.482282
+    ],
+    "max_joint_step_deg": 1.5822747929359835
+  },
+  "hypothetical_descent_max_joint_step_deg": 0.5013700360247881,
+  "hypothetical_descent_min_abs_joint5_deg": 6.178081981647661,
+  "guide_aim_px": [
+    330.92333333333323,
+    58.81999999999999
+  ],
+  "resolution": [
+    640,
+    400
+  ],
+  "camera_session": "0b75338a2ca9484ca08448cb9500dad4",
+  "original_model": {
+    "aim_px": [
+      330.92333333333323,
+      58.81999999999999
+    ],
+    "jacobian_px_per_mm": [
+      [
+        0.15833333333333244,
+        -1.9627777777777784
+      ],
+      [
+        -1.9633333333333338,
+        -0.21277777777777768
+      ]
+    ],
+    "max_residual_px": 0.7332196881637173,
+    "condition": 1.0279994751039943,
+    "seed": {
+      "captured_utc": "2026-10-22T22:02:27.556968+00:00",
+      "watch_pose": [
+        229.325333,
+        74.253235,
+        265.717163,
+        -179.397268,
+        -2.048553,
+        2.482282
+      ],
+      "contact_reference": [
+        229.325668,
+        74.253075,
+        88.351936,
+        -179.164304,
+        -1.96238,
+        2.488871
+      ],
+      "contact_source": "contact-light-20261022T214206Z.json",
+      "release_confirmed_by_operator": true,
+      "note": "Operator-jogged observation pose, unchanged taught XY; aiming reference remains provisional until contact recheck.",
+      "initial_observation": {
+        "center_px": [
+          329.96666666666664,
+          59.133333333333326
+        ],
+        "session": "0b75338a2ca9484ca08448cb9500dad4",
+        "sequence": 2068,
+        "resolution": [
+          640,
+          400
+        ]
+      }
+    },
+    "session": "0b75338a2ca9484ca08448cb9500dad4",
+    "resolution": [
+      640,
+      400
+    ],
+    "validation": [
+      {
+        "offset_mm": [
+          5,
+          5
+        ],
+        "error_px": 0.26055792465165256
+      },
+      {
+        "offset_mm": [
+          -5,
+          -5
+        ],
+        "error_px": 0.4098799131574097
+      },
+      {
+        "offset_mm": [
+          0,
+          0
+        ],
+        "error_px": 0.5044799302250754
+      }
+    ],
+    "captured_utc": "2026-10-22T22:03:05.753123+00:00",
+    "status": "align_only_validated",
+    "pickup_validated": false
+  },
+  "contact_teaching_required": true,
+  "status": "teaching_approach_started",
+  "actual_pose": [
+    269.152191,
+    74.029327,
+    265.717163,
+    -179.397268,
+    -2.048553,
+    2.482282
+  ]
+}

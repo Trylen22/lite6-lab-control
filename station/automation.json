@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "profile_id": "f9337024415744a29ba9bc4b62f07761",
+  "created_utc": "2026-10-22T22:57:33.182860+00:00",
+  "calibrated_utc": "2026-10-22T22:40:39.571707+00:00",
+  "expires_utc": "2026-10-23T00:40:39.571707+00:00",
+  "camera_session": "0b75338a2ca9484ca08448cb9500dad4",
+  "resolution": [
+    640,
+    400
+  ],
+  "observation_height_mm": 265.717163,
+  "orientation_degrees": [
+    -179.397268,
+    -2.048553,
+    2.482282
+  ],
+  "contact_floor_z_mm": 94.35202,
+  "jacobian_px_per_mm": [
+    [
+      0.09666666666666685,
+      -1.6933333333333334
+    ],
+    [
+      -1.8533333333333333,
+      -0.12333333333333342
+    ]
+  ],
+  "cup_aim_px": [
+    331.4,
+    58.29999999999999
+  ],
+  "xy_min_mm": [
+    250.0,
+    -170.0
+  ],
+  "xy_max_mm": [
+    390.0,
+    180.0
+  ],
+  "speed_scale": 1.3225,
+  "validation": {
+    "max_fit_residual_px": 0.6745139997083126,
+    "condition": 1.0956613266320583,
+    "holdout_error_px": 1.9978383379771967,
+    "max_response_check_px": 2.3633176376046556
+  },
+  "reference_trials": [
+    "retarget-green-20261022T224353.json",
+    "repeat-seal-retry-20261022T222611.json"
+  ],
+  "domain": "Same tabletop/block height, camera mount/session, fixed wrist and observation height; inspected workspace only.",
+  "xy_regions_mm": [
+    [
+      [
+        250.0,
+        -170.0
+      ],
+      [
+        390.0,
+        180.0
+      ]
+    ]
+  ],
+  "workspace_extension": {
+    "preview": "workspace-extension-preview.json",
+    "scope": "Union of original region and new inspected corridor; sampled IK is not obstacle clearance",
+    "captured_utc": "2026-10-22T23:43:35.975393+00:00"
+  },
+  "clear_travel_mm_s": 60.0,
+  "previous_xy_regions_mm": [
+    [
+      [
+        259.31778,
+        -46.0465451923702
+      ],
+      [
+        320.1363789750319,
+        86.524834
+      ]
+    ],
+    [
+      [
+        298.204529,
+        -110.47762613518219
+      ],
+      [
+        341.16660235611823,
+        -9.209713
+      ]
+    ]
+  ],
+  "workspace_widened": {
+    "utc": "2026-10-23T01:30:00+00:00",
+    "basis": "Operator: tabletop is large; only ~1 ft to the side risks the table. Read-only IK sweep X230-390 step 20, Y-180..180 step 30, path high->contact floor->high->start: all pass for X>=250. Clipped to camera view (Y about -175..+210).",
+    "not": "IK sampling is not obstacle detection"
+  }
+}

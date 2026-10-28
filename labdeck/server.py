@@ -28,6 +28,7 @@ from labdeck.hands import HandDetector, draw_hands, MODEL as HAND_MODEL
 from labdeck.hand_follow import HandFollower
 from labdeck.hand_servo import wake_arm
 from labdeck.start_pose import StartPoseMover
+from labdeck.station import seed_local
 from labdeck.jobs import JobManager
 from labdeck.automatic_pick import load_profile, PROFILE
 
@@ -609,6 +610,8 @@ def main():
     parser.add_argument("--port", type=int, default=8100)
     args = parser.parse_args()
     config = tomllib.loads(args.config.read_text())
+    if copied := seed_local():
+        print("Station calibration copied into local/: " + ", ".join(copied), flush=True)
     robot_ip = config["robot"]["ip"]
     if not robot_ip:
         parser.error("Record the confirmed robot IP in local/lab.toml first")
