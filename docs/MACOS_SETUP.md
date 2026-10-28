@@ -86,7 +86,9 @@ ping -c 2 169.254.1.222
 ping -c 2 192.168.1.152
 ```
 
-If the route command reports that a route already exists, inspect it instead of repeatedly adding or deleting routes. A working robot ping does not establish a working camera route. Keep normal Wi-Fi Internet routing separate from this dedicated lab link. A VPN can also alter local routing.
+**Why this step matters on a Mac:** macOS keeps a single route for the whole `169.254.0.0/16` link-local range and binds it to the first network service in its order, usually Wi-Fi. Even with a `169.254` address on the Ethernet adapter, camera traffic then leaves through Wi-Fi and the camera is never found (`netstat -rn -f inet | grep 169.254` shows which interface owns it). Three fixes, in order of permanence: turn Wi-Fi off to test; add the host route above for this session; or in **System Settings › Network › ⋯ › Set Service Order…** drag the Ethernet adapter above Wi-Fi so it owns link-local permanently. `scripts/diagnose_camera.py` prints these commands with the actual adapter name.
+
+If the route command reports `File exists`, a route to the camera already exists, possibly through Wi-Fi. Replace it with `sudo route -n change -host 169.254.1.222 -interface enX` instead of repeatedly adding or deleting routes. A working robot ping does not establish a working camera route. Keep normal Wi-Fi Internet routing separate from this dedicated lab link. A VPN can also alter local routing.
 
 These commands are temporary host-side configuration; they do not reconfigure either device. Remove only the aliases and explicit route you added when finished:
 

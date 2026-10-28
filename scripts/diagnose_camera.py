@@ -104,6 +104,45 @@ def interface_kind(name):
     return "unknown"
 
 
+def mac_wired_adapters():
+    """Active non-Wi-Fi adapters on a Mac: [(hardware port, device, [IPv4s])]."""
+    code, text = run(["networksetup", "-listallhardwareports"])
+    found = []
+    for port, dev in re.findall(r"Hardware Port: ([^\n]+)\nDevice: (\S+)", text):
+        if re.search(r"Wi-?Fi|AirPort|Bluetooth|Thunderbolt Bridge", port, re.I):
+            continue
+        code, info = run(["ifconfig", dev])
+        if "status: active" in info:
+            found.append(
+                (port.strip(), dev, re.findall(r"inet (\d+\.\d+\.\d+\.\d+)", info))
+            )
+    return found
+
+
+def mac_route_fix(ip, wrong_iface):
+    """Concrete commands for the macOS link-local route problem."""
+    wired = mac_wired_adapters()
+    if not wired:
+        return (
+            "No active wired adapter found: check the Ethernet adapter is plugged in and its link light is on "
+            "(System Settings › Network should show it as Connected or Self-Assigned IP)."
+        )
+    port, dev, addrs = wired[0]
+    lines = [
+        f"macOS sends ALL 169.254.x.x traffic out one interface; here that is {wrong_iface or '?'}, not your "
+        f"wired adapter {dev} ({port}, addresses {', '.join(addrs) or 'none'}). Pick one fix:",
+        "  1) quick test: turn Wi-Fi off, run this check again",
+        f"  2) this session:  sudo route -n add -host {ip} -interface {dev}",
+        f"     (if it says 'File exists':  sudo route -n change -host {ip} -interface {dev})",
+        f"  3) lasting: System Settings › Network › ⋯ › Set Service Order…, drag {port} above Wi-Fi",
+    ]
+    if not any(a.startswith("169.254.") for a in addrs):
+        lines.append(
+            f"  {dev} also needs a link-local address:  sudo ifconfig {dev} inet 169.254.1.11 netmask 255.255.0.0 alias"
+        )
+    return "\n".join(lines)
+
+
 def ping(ip):
     if SYSTEM == "Windows":
         cmd = ["ping", "-n", "2", "-w", "1000", ip]
@@ -190,7 +229,18 @@ def main():
     kind = interface_kind(iface)
     src = source_address(ip)
     print(f"interface: {iface or '?'} ({kind}) · source address: {src}")
-    if link_local and not str(src).startswith("169.254."):
+    if SYSTEM == "Darwin" and link_local:
+        table = run(["netstat", "-rn", "-f", "inet"])[1]
+        ll = [line for line in table.splitlines() if line.startswith("169.254")]
+        print("169.254 routes:", *(ll or ["none"]), sep="\n  ")
+    route_wrong = (
+        (link_local and not str(src).startswith("169.254."))
+        or "wi-fi" in kind.lower()
+        or "airport" in kind.lower()
+    )
+    if route_wrong and SYSTEM == "Darwin":
+        findings.append(("ROUTE", mac_route_fix(ip, iface)))
+    elif link_local and not str(src).startswith("169.254."):
         findings.append(
             (
                 "ROUTE",

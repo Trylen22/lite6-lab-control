@@ -84,6 +84,34 @@ class DiagnoseCameraTests(unittest.TestCase):
         code, text = verdict(devices=())
         self.assertIn("[FIREWALL]", text)
 
+    def test_mac_route_fix_names_the_wired_adapter(self):
+        # Real-shaped macOS output: Wi-Fi is en0, a USB Ethernet adapter is en7
+        # with a self-assigned 169.254 address, but the route goes out en0.
+        ports = (
+            "Hardware Port: Wi-Fi\nDevice: en0\nEthernet Address: aa\n\n"
+            "Hardware Port: USB 10/100/1000 LAN\nDevice: en7\nEthernet Address: bb\n\n"
+            "Hardware Port: Thunderbolt Bridge\nDevice: bridge0\nEthernet Address: cc\n"
+        )
+        ifconfig = {
+            "en7": "en7: flags=8863<UP>\n\tinet 169.254.32.7 netmask 0xffff0000\n\tstatus: active\n",
+            "bridge0": "bridge0: flags=8863<UP>\n\tstatus: inactive\n",
+        }
+
+        def fake_run(cmd, timeout=8):
+            if cmd[0] == "networksetup":
+                return 0, ports
+            if cmd[0] == "ifconfig":
+                return 0, ifconfig.get(cmd[1], "")
+            return 0, ""
+
+        with patch.object(dc, "run", side_effect=fake_run):
+            text = dc.mac_route_fix(IP, "en0")
+        self.assertIn("not your wired adapter en7 (USB 10/100/1000 LAN", text)
+        self.assertIn(f"sudo route -n add -host {IP} -interface en7", text)
+        self.assertIn("route -n change", text)
+        self.assertIn("Set Service Order", text)
+        self.assertNotIn("ifconfig en7 inet", text)  # it already has 169.254
+
     def test_local_network_verdict_is_mac_only(self):
         code, text = verdict(
             system="Linux", tcp="EHOSTUNREACH", iface=("enp8s0", "wired/other")
