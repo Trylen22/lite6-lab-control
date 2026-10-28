@@ -2,6 +2,25 @@
 
 The project has been tested on Linux x86_64 with Python 3.12. This Mac procedure combines the known station configuration with vendor troubleshooting guidance; it has not yet been validated on a collaborator's Mac. A connection failure needs its exact error before it can be attributed to networking, permissions, packages, or the camera.
 
+## If the camera is never found, diagnose once
+
+```bash
+.venv/bin/python scripts/diagnose_camera.py
+```
+
+It is read-only (route, ping, one TCP probe of port 11490, DepthAI discovery) and ends with a verdict. Fix what it names, then run it again. Retrying the camera connection in a loop does not help: every cause below produces the same "no device found".
+
+| Verdict | Meaning | Fix |
+|---|---|---|
+| `ROUTE` | Traffic to `169.254.1.222` leaves through Wi-Fi or an interface without a `169.254.x.x` address | Add the aliases and host route below |
+| `NO PATH` | Nothing answers | Link light, PoE power (a USB Ethernet adapter supplies none), switch |
+| `ADDRESS` | Discovery sees an OAK at another address | The camera took a DHCP address; use it (`--ip`, `local/lab.toml`) |
+| `LOCAL NETWORK` | `ping` works but Python can't connect | Allow the launching app (Terminal, iTerm, VS Code, Cursor, the agent's app) under **Privacy & Security › Local Network**, then quit and reopen it |
+| `FIREWALL` | Ping and TCP work, discovery sees nothing | Allow incoming connections for Python |
+| `IN USE` | The camera is open on another computer | It serves one host at a time. The Linux station deck reconnects every 5 s, so stop it (Ctrl+C) before the Mac tries |
+
+`LOCAL NETWORK` is the Mac-specific trap: `ping` is exempt from that privacy setting, so a working ping proves nothing about Python. A coding agent's terminal inherits the permission of the app it runs in.
+
 ## Check the Python environment first
 
 Use Python 3.12 in a new virtual environment. The pinned NumPy requires Python 3.12 or newer; the Mac's default Python may not meet that requirement. Use a Python installation matching the Mac's architecture rather than mixing an Intel environment with Apple Silicon packages.
@@ -11,7 +30,7 @@ sw_vers
 uname -m
 python3.12 --version
 python3.12 -m venv .venv
-.venv/bin/python -m pip install -r requirements-deck.txt
+.venv/bin/python -m pip install -r requirements.txt   # Intel Mac: requirements-deck.txt (see below)
 .venv/bin/python -m pip check
 .venv/bin/python -c 'import platform, depthai, cv2, numpy; print(platform.machine()); print("DepthAI", depthai.__version__); print("OpenCV", cv2.__version__); print("NumPy", numpy.__version__)'
 ```
@@ -25,6 +44,9 @@ Published wheel metadata checked on 2026-10-26:
 | `depthai==3.11.0` | macOS 11+, both Apple Silicon and Intel |
 | `numpy==2.5.4` | Python 3.12+; macOS wheels for both architectures |
 | `opencv-contrib-python==5.0.0.93` | macOS 13+ Apple Silicon; macOS 14+ Intel |
+| `mediapipe==0.10.35` (Hand puppy only) | **Apple Silicon only**; no Intel Mac wheel |
+
+On an **Intel Mac**, `requirements.txt` fails on mediapipe. Install `requirements-deck.txt` instead: everything works except Hand puppy, which loads mediapipe only when used. Rechecked 2026-10-28 with `pip download --platform`.
 
 These are package-distribution constraints, not proof that this application has passed a Mac hardware test. Older macOS versions may need a separately tested dependency set; do not silently change the shared requirements to work around one laptop's install failure.
 

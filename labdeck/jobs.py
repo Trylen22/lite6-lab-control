@@ -72,6 +72,13 @@ class JobManager:
             ).tolist()
             check_transit(start, estimate, profile)
             return True, "One cycle · place back and return to camera height"
+        except FileNotFoundError:
+            # A fresh clone, or a computer that isn't the station: no taught
+            # pickup profile in local/. Say so plainly instead of a path error.
+            return (
+                False,
+                "No pickup calibration on this computer yet (local/automation.json)",
+            )
         except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
             return False, str(exc)
 
