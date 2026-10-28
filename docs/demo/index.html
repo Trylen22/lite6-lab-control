@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lite 6 Robot Arm Control</title>
+<meta name="description" content="Lite 6 robot arm control demo by Trylen Stephens, using Opus 5.5.">
+<meta property="og:title" content="Lite 6 Robot Arm Control">
+<meta property="og:description" content="Demo video by Trylen Stephens, using Opus 5.5.">
+<meta property="og:image" content="poster.jpg">
+<style>
+  /* Static demo page for GitHub Pages: black ground and serif type to match the video's title card. */
+  :root {
+    --bg: #000;
+    --fg: #f2f2f0;
+    --muted: #9a9a96;
+    --rule: #2a2a28;
+    --serif: "Times New Roman", Tinos, "Liberation Serif", Times, serif;
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--serif);
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 32px 16px 40px;
+  }
+  header { text-align: center; display: grid; gap: 6px; }
+  h1 {
+    margin: 0;
+    font-weight: 400;
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    text-wrap: balance;
+  }
+  .byline { margin: 0; font-size: 1.1rem; color: var(--muted); }
+  video {
+    display: block;
+    width: min(100%, 420px);
+    aspect-ratio: 9 / 16;
+    height: auto;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+  }
+  .meta { margin: 0; font-size: 0.95rem; color: var(--muted); }
+  a { color: var(--fg); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Lite 6 Robot Arm Control</h1>
+    <p class="byline">by Trylen Stephens, using Opus 5.5</p>
+  </header>
+  <video src="lite6-demo.mp4" poster="poster.jpg" controls playsinline preload="metadata"></video>
+  <p class="meta"><a href="https://github.com/Trylen22/lite6-lab-control">Source on GitHub</a></p>
+</main>
+</body>
+</html>
